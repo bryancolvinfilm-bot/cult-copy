@@ -49,7 +49,12 @@ fn native_text_image_and_file_clipboards_round_trip() {
     match snapshot.content {
         Some(Captured::Text(text)) => {
             assert_eq!(text.text, "Cross-platform clipboard — café 😀");
-            assert_eq!(text.html.as_deref(), Some("<b>Clipboard</b>"));
+            // Windows adds its standard HTML document/fragment envelope. Check
+            // that the original formatting survives on every native backend.
+            assert!(text
+                .html
+                .as_deref()
+                .is_some_and(|html| html.contains("<b>Clipboard</b>")));
             assert!(text
                 .rtf
                 .as_deref()
