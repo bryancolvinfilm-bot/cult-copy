@@ -102,7 +102,13 @@ function Wait-ProjectRun {
 }
 
 if (!$taskExistingRelease -or $taskExistingRelease.draft) {
-    $taskCheckRuns = @(Get-ProjectRuns | Where-Object { $_.display_title.StartsWith('Check ') })
+    # A push-triggered run can take a few seconds to appear in the API. Allow
+    # that registration delay before dispatching a replacement check ourselves.
+    $taskCheckRuns = @()
+    for ($taskAttempt = 0; $taskAttempt -lt 6 -and $taskCheckRuns.Count -eq 0; $taskAttempt++) {
+        $taskCheckRuns = @(Get-ProjectRuns | Where-Object { $_.display_title.StartsWith('Check ') })
+        if ($taskCheckRuns.Count -eq 0) { Start-Sleep -Seconds 5 }
+    }
     $taskCheck = if ($taskCheckRuns.Count -gt 0) { $taskCheckRuns[0] } else { Start-ProjectRun -Publish $false }
     $null = Wait-ProjectRun -Run $taskCheck
     if ((Invoke-ProjectApi -Path 'git/ref/heads/main').object.sha -ne $taskSha) { throw 'main changed after checks; synchronize and retry.' }

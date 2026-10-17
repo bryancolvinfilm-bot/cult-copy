@@ -20,7 +20,7 @@ case "$(uname -s)" in
     cp THIRD_PARTY_NOTICES.txt packaging/RUST-STDLIB-NOTICES.html "$task_app/Resources/"
     codesign --force --deep --sign - "dist/macos-root/Duet Clipboard.app"
     codesign --verify --strict "dist/macos-root/Duet Clipboard.app"
-    lipo -verify_arch arm64 x86_64 "$task_app/MacOS/duet-clipboard"
+    lipo "$task_app/MacOS/duet-clipboard" -verify_arch arm64 x86_64
     pkgbuild --root dist/macos-root --identifier io.duetclipboard.app --version "$task_version" --install-location /Applications "dist/DuetClipboard-$task_version-macos-universal.pkg"
     pkgutil --payload-files "dist/DuetClipboard-$task_version-macos-universal.pkg" > dist/mac-package-files.txt
     ;;
