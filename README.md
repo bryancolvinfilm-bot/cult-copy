@@ -12,6 +12,7 @@ This is an early release. Mac-to-PC clipboard sharing has been confirmed working
 
 Get the download for your computer from the
 [latest public release](https://github.com/bryancolvinfilm-bot/duet-clipboard/releases/latest).
+The matrix below applies to v0.1.3 and newer; earlier releases have fewer downloads.
 
 | System | Processor | Recommended download | Alternative |
 | --- | --- | --- | --- |
@@ -23,7 +24,7 @@ Get the download for your computer from the
 
 Each filename starts with `DuetClipboard-<version>-`. **x64** means Intel/AMD
 64-bit; **ARM64** means 64-bit Arm. The Mac universal app contains both.
-Every release includes all eight packages plus `CHECKSUMS.sha256` and
+Every release built from this matrix includes all eight packages plus `CHECKSUMS.sha256` and
 `BUILD-INFO.json` with the source commit and package hashes.
 
 On Mac, quit the running app, open the DMG, and drag **Duet Clipboard** onto

@@ -87,3 +87,9 @@ Local verification: all 16 Rust tests pass (three regression tests cover these
 device/notice failures), all-feature Clippy passes, formatting passes, and the
 release verifier rejects tampering and missing packages for every architecture.
 Native clipboard-writing tests remain reserved for CI desktops.
+
+The [native check run for 037a965](https://github.com/bryancolvinfilm-bot/duet-clipboard/actions/runs/38994697797)
+passed all five platforms, including Windows ARM64 and Linux ARM64 clipboard
+round trips. Both Linux AppImages launched successfully without FUSE. Mac
+packaging verified both CPU architectures, the app signature, the DMG, and the
+embedded ICNS with Apple's iconutil. Both Windows installers built successfully.

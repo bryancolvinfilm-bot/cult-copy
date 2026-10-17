@@ -3,10 +3,16 @@ $ErrorActionPreference = 'Stop'
 $taskRoot = Split-Path -Parent $PSScriptRoot
 . (Join-Path $PSScriptRoot 'version.ps1')
 $taskVersion = Get-AppVersion -Root $taskRoot
-if (!$Binary) { $Binary = Join-Path $taskRoot 'target\x86_64-unknown-linux-gnu\release\duet-clipboard' }
+if (!$Binary) {
+    $taskTarget = if ($Architecture -eq 'arm64') { 'aarch64-unknown-linux-gnu' } else { 'x86_64-unknown-linux-gnu' }
+    $Binary = Join-Path $taskRoot ('target\' + $taskTarget + '\release\duet-clipboard')
+}
 $Binary = (Resolve-Path -LiteralPath $Binary).Path
 $taskHeader = [System.IO.File]::ReadAllBytes($Binary)
 if ($taskHeader[0] -ne 127 -or [System.Text.Encoding]::ASCII.GetString($taskHeader,1,3) -ne 'ELF') { throw 'The input must be a Linux ELF executable.' }
+$taskMachine = [BitConverter]::ToUInt16($taskHeader,18)
+$taskExpectedMachine = if ($Architecture -eq 'arm64') { 183 } else { 62 }
+if ($taskMachine -ne $taskExpectedMachine) { throw 'The ELF architecture does not match the requested installer.' }
 $taskPayload = Join-Path $taskRoot 'dist\linux-payload'
 New-Item -ItemType Directory -Path $taskPayload -Force | Out-Null
 Copy-Item -LiteralPath $Binary -Destination (Join-Path $taskPayload 'duet-clipboard') -Force
