@@ -2,7 +2,7 @@
   #define AppBinary "..\target\release\duet-clipboard.exe"
 #endif
 #ifndef AppVersion
-  #define AppVersion "0.1.1"
+  #error Package with scripts/package-windows.ps1 to supply the Cargo.toml version.
 #endif
 
 [Setup]
@@ -31,6 +31,7 @@ Source: "{#AppBinary}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\dist\runtime\*.dll"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "..\dist\runtime\LICENSE-LLVM.txt"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\NOTICE.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\THIRD_PARTY_NOTICES.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "RUST-STDLIB-NOTICES.html"; DestDir: "{app}"; Flags: ignoreversion
 

@@ -2,12 +2,14 @@ $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $taskRoot = Split-Path -Parent $PSScriptRoot
+. (Join-Path $PSScriptRoot 'version.ps1')
+$taskVersion = Get-AppVersion -Root $taskRoot
 $taskDist = Join-Path $taskRoot 'dist'
 New-Item -ItemType Directory -Path $taskDist -Force | Out-Null
-$taskOutput = Join-Path $taskDist 'DuetClipboard-0.1.1-mac-build-source.zip'
+$taskOutput = Join-Path $taskDist ('DuetClipboard-' + $taskVersion + '-mac-build-source.zip')
 $taskFiles = @(
-    'Cargo.toml', 'Cargo.lock', 'LICENSE', 'README.md', 'THIRD_PARTY_NOTICES.txt',
-    'rustfmt.toml', '.gitignore'
+    'Cargo.toml', 'Cargo.lock', 'LICENSE', 'NOTICE.md', 'README.md', 'CONTRIBUTING.md',
+    'publish.md', 'AGENTS.md', 'THIRD_PARTY_NOTICES.txt', 'rustfmt.toml', '.gitignore', '.gitattributes'
 ) | ForEach-Object { Get-Item -LiteralPath (Join-Path $taskRoot $_) }
 foreach ($taskDirectory in @('src', 'tests', 'scripts', 'docs', 'packaging', '.cargo', '.github')) {
     $taskFiles += Get-ChildItem -LiteralPath (Join-Path $taskRoot $taskDirectory) -File -Recurse -Force
@@ -27,7 +29,7 @@ try {
         $taskWriter.WriteLine('This is the Mac source/build kit, not an already-built installer.')
         $taskWriter.WriteLine('On your Mac, open scripts/Build Mac App.command.')
         $taskWriter.WriteLine('If it does not open, type bash followed by a space in Terminal, drag that file into Terminal, and press Return.')
-        $taskWriter.WriteLine('The helper produces dist/DuetClipboard-0.1.1-macos-universal.pkg and selects it in Finder.')
+        $taskWriter.WriteLine('The helper produces dist/DuetClipboard-' + $taskVersion + '-macos-universal.pkg and selects it in Finder.')
         $taskWriter.WriteLine('See docs/MAC-BUILD.md for prerequisites and Mac-to-PC pairing instructions.')
     } finally { $taskWriter.Dispose() }
     $taskEntry.ExternalAttributes = -2119958528

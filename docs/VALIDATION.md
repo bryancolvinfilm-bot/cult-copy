@@ -1,5 +1,20 @@
 # Validation
 
+## Native CI and publication in 0.1.2
+
+The first hosted 0.1.1 workflow completed the Windows and Linux checks/builds.
+Its Mac clipboard round trip caught an invalid custom pasteboard type: a MIME
+string was used where macOS requires a UTI. Version 0.1.2 uses a reverse-DNS UTI
+on macOS and retains the existing clipboard marker on Windows/Linux. The marker
+is local clipboard metadata; network compatibility is unchanged.
+
+The release workflow now gates publication on all three native jobs, validates
+the version/source SHA, and verifies uploaded installer hashes before publishing.
+See the linked workflow in each release's `BUILD-INFO.json` for that release's
+actual native results; these builds do not replace full desktop testing on every
+supported OS/compositor. The local release verifier tests also reject a wrong
+source commit, modified installer bytes, and missing platform assets.
+
 ## Windows tray fix in 0.1.1
 
 The 0.1.0 Windows close-to-tray failure was reproduced on the desktop: after
@@ -53,4 +68,4 @@ The app was developed on Windows. The checks below distinguish compiled code and
 
 The tests cover pairing before sharing; A → B → A text copies without echo; approval before even small text in manual mode; metadata-only large-file offers; preservation of a newer local clipboard; image transfer; declining; cancellation when manual mode is enabled; and rejecting late chunks from a cancelled transfer after retry.
 
-Native CI is configured in `.github/workflows/build.yml` for Windows, macOS, and Linux. It has not been executed from this workspace. Public release signing and Apple notarization are not configured.
+Native CI is configured in `.github/workflows/build.yml` for Windows, macOS, and Linux. Current run results are available on GitHub Actions; the table above records the original local checks. Public release signing and Apple notarization are not configured.

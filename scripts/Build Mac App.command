@@ -72,7 +72,8 @@ cargo test --locked --all-targets
 printf '\nBuilding Apple Silicon and Intel binaries, then packaging...\n'
 sh scripts/package-unix.sh
 
-task_package="$task_root/dist/DuetClipboard-0.1.1-macos-universal.pkg"
+. "$task_root/scripts/version.sh"
+task_package="$task_root/dist/DuetClipboard-$task_version-macos-universal.pkg"
 pkgutil --payload-files "$task_package" > dist/mac-package-files.txt
 shasum -a 256 "$task_package" > dist/mac-package.sha256
 printf '\nInstaller ready: %s\n' "$task_package"

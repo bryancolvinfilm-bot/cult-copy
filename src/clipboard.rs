@@ -9,6 +9,9 @@ use std::path::{Path, PathBuf};
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
+#[cfg(target_os = "macos")]
+pub const MARKER: &str = "io.duetclipboard.clipboard-event";
+#[cfg(not(target_os = "macos"))]
 pub const MARKER: &str = "application/x-duet-clipboard-event";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

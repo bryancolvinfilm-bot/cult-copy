@@ -1,29 +1,85 @@
-name: Test and package
+name: Test, build, and publish
+run-name: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_release && 'Publish' || 'Check' }} ${{ github.sha }}
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Full commit SHA on main to build (must match the selected main ref)
+        required: true
+        type: string
+      publish_release:
+        description: Publish verified installers on GitHub Releases
+        type: boolean
+        default: true
 
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+
 jobs:
+  metadata:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Release verifier checks
+        shell: pwsh
+        run: ./scripts/test-release-assets.ps1
+      - name: Validate source and read package version
+        id: version
+        shell: pwsh
+        env:
+          REQUESTED_SHA: ${{ inputs.expected_sha }}
+        run: |
+          if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
+            if ($env:GITHUB_REF -ne 'refs/heads/main' -or $env:REQUESTED_SHA -ne $env:GITHUB_SHA) {
+              throw 'Dispatch must select main and exactly match expected_sha. Fetch and retry against the current commit.'
+            }
+          }
+          . ./scripts/version.ps1
+          "version=$(Get-AppVersion)" >> $env:GITHUB_OUTPUT
+      - name: Verify release can be created
+        if: github.event_name == 'workflow_dispatch' && inputs.publish_release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APP_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          if gh release view "v$APP_VERSION" --json isDraft --jq '.isDraft' > existing-release.txt 2>/dev/null; then
+            test "$(cat existing-release.txt)" = true || { echo 'This version is already public. Bump Cargo.toml and Cargo.lock.'; exit 1; }
+          fi
+
   desktop:
+    needs: metadata
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
         os: [windows-latest, macos-latest, ubuntu-24.04]
     runs-on: ${{ matrix.os }}
+    env:
+      APP_VERSION: ${{ needs.metadata.outputs.version }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
       - name: Linux system libraries
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y pkg-config xvfb libx11-dev libxi-dev libxrandr-dev libxcursor-dev libxinerama-dev libegl1-mesa-dev libgl1-mesa-dev libwayland-dev libxkbcommon-dev
       - run: cargo fmt --all -- --check
-      - run: cargo clippy --locked --all-targets -- -D warnings
+      - run: cargo clippy --locked --all-targets --all-features -- -D warnings
       - run: cargo test --locked --all-targets
       - name: Native Windows or macOS clipboard
         if: runner.os != 'Linux'
@@ -47,13 +103,40 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           task_install_dir=$(mktemp -d "$RUNNER_TEMP/duet-install.XXXXXXXX")
-          XDG_DATA_HOME="$task_install_dir/share" sh dist/DuetClipboard-0.1.1-linux-x86_64.run
+          XDG_DATA_HOME="$task_install_dir/share" sh "dist/DuetClipboard-$APP_VERSION-linux-x86_64.run"
           "$task_install_dir/share/duet-clipboard/duet-clipboard" --version
       - uses: actions/upload-artifact@v4
         with:
-          name: DuetClipboard-${{ runner.os }}
+          name: DuetClipboard-${{ runner.os }}-${{ github.sha }}
           path: |
             dist/*setup.exe
             dist/*.pkg
             dist/*.run
           if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_release
+    needs: [metadata, desktop]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      APP_VERSION: ${{ needs.metadata.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: DuetClipboard-*-${{ github.sha }}
+          merge-multiple: true
+          path: release-assets
+      - name: Prepare and validate all platform assets
+        shell: pwsh
+        run: |
+          ./scripts/release-assets.ps1 -Mode Prepare -Directory release-assets -Version $env:APP_VERSION -SourceSha $env:GITHUB_SHA -Repository $env:GITHUB_REPOSITORY -RunUrl "https://github.com/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
+      - name: Publish verified public downloads
+        shell: bash
+        run: bash scripts/publish-release.sh

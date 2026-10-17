@@ -1,6 +1,8 @@
 param([string]$Binary = '', [string]$Compiler = '')
 $ErrorActionPreference = 'Stop'
 $taskRoot = Split-Path -Parent $PSScriptRoot
+. (Join-Path $PSScriptRoot 'version.ps1')
+$taskVersion = Get-AppVersion -Root $taskRoot
 if (!$Binary) { $Binary = Join-Path $taskRoot 'target\release\duet-clipboard.exe' }
 $Binary = (Resolve-Path -LiteralPath $Binary).Path
 if (!$Compiler) {
@@ -23,5 +25,5 @@ if ($taskLlvm) {
         Copy-Item -LiteralPath (Join-Path $taskLlvm.FullName 'LICENSE.TXT') -Destination (Join-Path $taskRoot 'dist\runtime\LICENSE-LLVM.txt') -Force
     }
 }
-& $Compiler ('/DAppBinary=' + $Binary) (Join-Path $taskRoot 'packaging\windows.iss')
+& $Compiler ('/DAppBinary=' + $Binary) ('/DAppVersion=' + $taskVersion) (Join-Path $taskRoot 'packaging\windows.iss')
 if ($LASTEXITCODE -ne 0) { throw 'Installer compilation failed.' }

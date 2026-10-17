@@ -6,7 +6,7 @@ builds are not available from the Windows development workspace itself. The buil
 helper below produces the installer on your Mac; the source bundle is not itself
 an installed app.
 
-1. Extract `DuetClipboard-0.1.1-mac-build-source.zip` on a Mac running macOS 12 or
+1. Extract `DuetClipboard-<version>-mac-build-source.zip` on a Mac running macOS 12 or
    newer. Keep the extracted folder somewhere writable.
 2. Open `scripts/Build Mac App.command`. Alternatively, open Terminal, type `bash `,
    drag that file into Terminal, and press Return.
@@ -16,7 +16,7 @@ an installed app.
    if needed, runs the automated tests, and builds both Apple Silicon and Intel
    versions. An internet connection and several GB of free space are needed.
 5. When it succeeds, Finder selects
-   `dist/DuetClipboard-0.1.1-macos-universal.pkg`. Install that package and open
+   `dist/DuetClipboard-<version>-macos-universal.pkg`. Install that package and open
    **Duet Clipboard** from Applications. This is an unsigned development package;
    macOS may require your approval to open it.
 6. Install the Windows setup on the PC. Open **Devices** on both computers, compare
@@ -27,6 +27,6 @@ The helper does not install Duet Clipboard automatically and does not write to
 your clipboard during its automated tests. Tests that modify the real clipboard
 remain skipped. Build output is saved in `dist/mac-build.log`.
 
-An alternative is to push the source into your GitHub repository and run the
-included **Test and package** Actions workflow. Its macOS job creates the same
-universal `.pkg` as a downloadable artifact. This workflow has not yet been run.
+For prebuilt public installers, use the repository's Releases page. To create a
+new release through native GitHub runners, follow [publish.md](../publish.md).
+Its Mac job creates the same universal `.pkg` without needing a local Mac build.

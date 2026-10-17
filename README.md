@@ -6,6 +6,14 @@ A third-party, open-source Rust tray/menu bar app that shares text, images, and 
 
 This is an early release. Mac-to-PC clipboard sharing has been confirmed working by the user who built and tested it, and the Windows close-to-tray fix has been verified on Windows. Linux desktop validation remains outstanding. See [validation details](docs/VALIDATION.md).
 
+## Downloads
+
+Get the Windows setup, universal Mac package, or Linux installer from the
+[latest public release](https://github.com/bryancolvinfilm-bot/duet-clipboard/releases/latest).
+Installers are development builds without public release signing/notarization.
+For the agent workflow that pushes, checks, builds all platforms, and publishes
+verified downloads, see [publish.md](publish.md).
+
 ## Use
 
 1. Install the app on each computer and open **Devices**.
@@ -78,13 +86,13 @@ For a Mac build with prerequisite setup, use [the Mac build helper](docs/MAC-BUI
 sh scripts/package-unix.sh
 ```
 
-This produces one macOS universal `.pkg`, or one per-user Linux `.run` installer. Run the Linux installer with `sh ./DuetClipboard-0.1.1-linux-x86_64.run` and open the app from your applications menu. Artifacts go into `dist/`. Certificates and Apple notarization are not configured; public releases need the appropriate signing setup.
+This produces one macOS universal `.pkg`, or one per-user Linux `.run` installer. Run the Linux installer with `sh ./DuetClipboard-<version>-linux-x86_64.run` (substitute the downloaded version) and open the app from your applications menu. Artifacts go into `dist/`. Certificates and Apple notarization are not configured; public releases need the appropriate signing setup.
 
 The original Linux x64 cross-build targets glibc 2.28 or newer. A Windows cross-build can be reproduced with the Linux Rust target installed and `scripts/cross-linux.ps1 -Zig PATH_TO_ZIG_EXE`. Refresh bundled dependency notices after changing the lockfile with `scripts/generate-notices.ps1`.
 
 See [validation results](docs/VALIDATION.md) for what was actually tested and which native desktop checks remain.
 
-The native CI workflow builds/tests on Windows, macOS, and Linux, and creates installers on their respective operating systems. Native clipboard tests are explicitly ignored in ordinary local test runs because they replace the real clipboard. Run them only in a disposable desktop session:
+The native CI workflow builds/tests on Windows, macOS, and Linux, and creates installers on their respective operating systems. GitHub-hosted Linux release builds use Ubuntu 24.04; older distributions may need a source or compatibility cross-build. A requested publish runs all platforms and makes verified installers available on GitHub Releases; see [publish.md](publish.md). Native clipboard tests are explicitly ignored in ordinary local test runs because they replace the real clipboard. Run them only in a disposable desktop session:
 
 ```sh
 cargo test --test native_clipboard -- --ignored --test-threads=1
