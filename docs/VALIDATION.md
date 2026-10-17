@@ -1,5 +1,20 @@
 # Validation
 
+## Version 0.1.4 Mac clipboard coexistence
+
+Duet now skips Apple's remote-clipboard announcements before reading any values,
+without invalidating a pending Duet transfer or local copy. Mac text, rich text,
+images, and file selections are published with AppKit's `currentHostOnly` option.
+The Mac setup UI reads Handoff preferences without changing them, reports unknown
+values explicitly, refreshes on focus, and links to the appropriate settings pane.
+
+Local checks: 19 automated tests passed; Windows and Apple Silicon all-feature
+Clippy checks passed. Mac Rust type checking excludes native C objects because this
+Windows host has no Apple SDK; it is not a native Mac build or runtime test.
+The extended native clipboard test is reserved for disposable CI desktops.
+Real Mac verification of Handoff detection, settings navigation, and two-Mac
+clipboard sharing remains outstanding.
+
 ## Native CI and publication in 0.1.2
 
 The first hosted 0.1.1 workflow completed the Windows and Linux checks/builds.

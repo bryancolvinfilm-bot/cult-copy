@@ -568,6 +568,9 @@ impl Engine {
             .as_ref()
             .context("Clipboard is unavailable")?
             .snapshot()?;
+        if snapshot.ignored {
+            return Ok(());
+        }
         let signature = snapshot.content.as_ref().map(Captured::signature);
         if signature == self.last_signature {
             return Ok(());

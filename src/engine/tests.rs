@@ -108,6 +108,7 @@ async fn connection_warnings_expire_and_other_notices_can_be_dismissed() {
 struct Memory {
     content: Option<Captured>,
     marker: Option<Uuid>,
+    ignored: bool,
 }
 
 struct TestClipboard {
@@ -122,6 +123,7 @@ impl ClipboardAccess for TestClipboard {
         Ok(Snapshot {
             content: memory.content.clone(),
             marker: memory.marker,
+            ignored: memory.ignored,
         })
     }
     fn apply(&self, kind: &Kind, paths: &[PathBuf], id: Uuid) -> Result<()> {
@@ -133,11 +135,53 @@ impl ClipboardAccess for TestClipboard {
         *self.memory.lock().unwrap() = Memory {
             content: Some(content),
             marker: Some(id),
+            ignored: false,
         };
         self.writes.fetch_add(1, Ordering::Relaxed);
         let _ = self.bus.try_send(Command::ClipboardChanged);
         Ok(())
     }
+}
+
+#[tokio::test]
+async fn ignored_apple_announcements_do_not_invalidate_a_duet_transfer_or_local_copy() {
+    let dir = tempfile::tempdir().unwrap();
+    let config = Config::load(dir.path()).unwrap();
+    let (mut engine, handle, _receiver) = create_engine(config, dir.path().to_owned());
+    let memory = Arc::new(Mutex::new(Memory {
+        ignored: true,
+        ..Default::default()
+    }));
+    engine.clipboard = Some(Box::new(TestClipboard {
+        memory: memory.clone(),
+        writes: Arc::new(AtomicUsize::new(0)),
+        bus: handle.bus.clone(),
+    }));
+    engine.last_signature = Some("last local copy".into());
+    engine.revision = 7;
+    let clock = engine.config.clock;
+
+    engine.command(Command::ClipboardChanged).unwrap();
+    assert_eq!(
+        engine.revision, 7,
+        "A pending Duet transfer must remain current"
+    );
+    assert_eq!(engine.last_signature.as_deref(), Some("last local copy"));
+    assert_eq!(engine.config.clock, clock);
+
+    // A real copy after the remote announcement still participates in sync.
+    *memory.lock().unwrap() = Memory {
+        content: Some(Captured::Text(TextPayload {
+            text: "new local copy".into(),
+            html: None,
+            rtf: None,
+        })),
+        ..Default::default()
+    };
+    engine.command(Command::ClipboardChanged).unwrap();
+    assert_eq!(engine.revision, 8);
+    assert_eq!(engine.config.clock, clock + 1);
+    assert_ne!(engine.last_signature.as_deref(), Some("last local copy"));
 }
 
 struct Computer {
@@ -175,6 +219,7 @@ impl Computer {
         *self.memory.lock().unwrap() = Memory {
             content: Some(captured),
             marker: None,
+            ignored: false,
         };
         self.handle.send(Command::ClipboardChanged);
     }

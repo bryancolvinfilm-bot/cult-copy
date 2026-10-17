@@ -17,6 +17,9 @@ use tray_icon::{
 };
 use uuid::Uuid;
 
+#[cfg(any(target_os = "macos", feature = "ui-test"))]
+mod macos;
+
 const ACCENT: Color32 = Color32::from_rgb(109, 224, 193);
 const MUTED: Color32 = Color32::from_rgb(151, 163, 184);
 
@@ -48,6 +51,8 @@ pub struct App {
     window_control: crate::window::WindowControl,
     last_indicator: Option<crate::model::ClipboardNotice>,
     settling_frames: u8,
+    #[cfg(any(target_os = "macos", feature = "ui-test"))]
+    mac_clipboard: macos::MacClipboardSetup,
     #[cfg(feature = "ui-test")]
     preview_frames: u32,
     #[cfg(all(target_os = "windows", feature = "ui-test"))]
@@ -113,6 +118,8 @@ impl App {
             window_control,
             last_indicator: None,
             settling_frames: 0,
+            #[cfg(any(target_os = "macos", feature = "ui-test"))]
+            mac_clipboard: macos::MacClipboardSetup::default(),
             #[cfg(feature = "ui-test")]
             preview_frames: 0,
             #[cfg(all(target_os = "windows", feature = "ui-test"))]
@@ -405,6 +412,8 @@ impl App {
             clipboard,
             dir,
         } = settings;
+        #[cfg(any(target_os = "macos", feature = "ui-test"))]
+        self.mac_clipboard.settings(ui);
         let mut ask = ask_all;
         if ui
             .checkbox(&mut ask, "Ask before receiving anything")
@@ -482,6 +491,8 @@ impl App {
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        #[cfg(any(target_os = "macos", feature = "ui-test"))]
+        self.mac_clipboard.update(ctx);
         #[cfg(all(target_os = "windows", feature = "ui-test"))]
         self.lifecycle_frames.fetch_add(1, Ordering::Relaxed);
         if self.settling_frames < 8 {
@@ -643,7 +654,11 @@ impl eframe::App for App {
                             ui.add_space(8.0);
                         }
                         match self.tab {
-                            Tab::Clipboard => self.history(ui, &history),
+                            Tab::Clipboard => {
+                                #[cfg(any(target_os = "macos", feature = "ui-test"))]
+                                self.mac_clipboard.banner(ui);
+                                self.history(ui, &history);
+                            }
                             Tab::Devices => self.devices(ui, &peers, port),
                             Tab::Settings => self.settings(
                                 ui,

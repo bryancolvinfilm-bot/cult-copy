@@ -1,6 +1,8 @@
 pub mod clipboard;
 pub mod config;
 pub mod engine;
+#[cfg(any(target_os = "macos", test, feature = "ui-test"))]
+pub mod handoff;
 pub mod instance;
 pub mod model;
 pub mod network;

@@ -11,13 +11,32 @@ fn native_text_image_and_file_clipboards_round_trip() {
     let dir = tempfile::tempdir().unwrap();
     let (bus, _receiver) = tokio::sync::mpsc::channel(32);
     let clipboard = SystemClipboard::new(bus).unwrap();
+    #[cfg(target_os = "macos")]
+    {
+        use clipboard_rs::{Clipboard, ClipboardContent, ClipboardContext};
+        let context = ClipboardContext::new().unwrap();
+        context
+            .set(vec![
+                ClipboardContent::Text("Apple remote clipboard placeholder".into()),
+                ClipboardContent::Other("com.apple.is-remote-clipboard".into(), vec![]),
+                ClipboardContent::Other(
+                    duet_clipboard::clipboard::MARKER.into(),
+                    uuid::Uuid::new_v4().as_bytes().to_vec(),
+                ),
+            ])
+            .unwrap();
+        let snapshot = clipboard.snapshot().unwrap();
+        assert!(snapshot.ignored);
+        assert!(snapshot.content.is_none());
+        assert!(snapshot.marker.is_none());
+    }
     let text_path = dir.path().join("text.json");
     std::fs::write(
         &text_path,
         serde_json::to_vec(&TextPayload {
             text: "Cross-platform clipboard — café 😀".into(),
             html: Some("<b>Clipboard</b>".into()),
-            rtf: None,
+            rtf: Some("{\\rtf1 Clipboard}".into()),
         })
         .unwrap(),
     )
@@ -25,9 +44,17 @@ fn native_text_image_and_file_clipboards_round_trip() {
     let id = uuid::Uuid::new_v4();
     clipboard.apply(&Kind::Text, &[text_path], id).unwrap();
     let snapshot = clipboard.snapshot().unwrap();
+    assert!(!snapshot.ignored);
     assert_eq!(snapshot.marker, Some(id));
     match snapshot.content {
-        Some(Captured::Text(text)) => assert_eq!(text.text, "Cross-platform clipboard — café 😀"),
+        Some(Captured::Text(text)) => {
+            assert_eq!(text.text, "Cross-platform clipboard — café 😀");
+            assert_eq!(text.html.as_deref(), Some("<b>Clipboard</b>"));
+            assert!(text
+                .rtf
+                .as_deref()
+                .is_some_and(|rtf| rtf.contains("Clipboard")));
+        }
         _ => panic!("Missing native text clipboard"),
     }
 

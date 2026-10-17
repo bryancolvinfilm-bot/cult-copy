@@ -65,6 +65,27 @@ Each computer has its own receiving settings:
 
 Above the automatic limit, only an offer is sent. Each recipient independently accepts or declines. Accepted transfers show circular percentage progress, transferred/total bytes, speed, estimated remaining time, cancellation, and retry. Files become pasteable after all bytes and hashes have been verified. A later local copy is preserved if it happens during a download; use **Copy to clipboard** to select the completed item deliberately.
 
+### Mac-to-Mac clipboard setup
+
+Apple's Universal Clipboard can compete with Duet on Macs signed in to the same
+Apple Account. In Duet's **Settings → Mac clipboard setup**, click **Open Handoff
+settings**, then turn off **Allow Handoff between this Mac and your iCloud devices**.
+Repeat on every Mac using Duet. Turning Handoff off also disables handing off
+activities such as Safari pages between Apple devices.
+
+Duet checks the stored Handoff preferences without changing them. The status is
+best effort: missing, mixed, or unreadable values show **Couldn't confirm** rather
+than guessing. It checks again when you return to Duet, while its window is focused,
+or when you click **Check again**. Always verify the actual switch in System Settings.
+If the link cannot reach the pane, go to **System Settings → General → AirDrop &
+Handoff** (or **AirDrop & Continuity**). On Monterey, use **System Preferences → General**.
+
+Duet skips clipboard announcements marked as arriving through Apple's Handoff
+before reading their contents. Items delivered by Duet are written with Apple's
+`currentHostOnly` option so Universal Clipboard does not share them again. These
+safeguards do not disable Apple's sharing of new copies made in other apps while
+Handoff remains on; macOS provides no supported app-level exclusive clipboard mode.
+
 ## Compatibility
 
 | Platform | Backend and requirements |

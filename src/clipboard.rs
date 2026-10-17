@@ -47,6 +47,8 @@ impl Captured {
 pub struct Snapshot {
     pub content: Option<Captured>,
     pub marker: Option<Uuid>,
+    /// An external sync announcement must not invalidate a local copy/transfer.
+    pub ignored: bool,
 }
 
 pub trait ClipboardAccess: Send {
@@ -114,6 +116,16 @@ impl SystemClipboard {
             .context
             .available_formats()
             .map_err(|e| anyhow::anyhow!("Cannot read clipboard: {e}"))?;
+        // Inspect types only: reading a promised remote value (even our marker)
+        // can ask Universal Clipboard to fetch it and display Apple's progress UI.
+        #[cfg(target_os = "macos")]
+        if formats.iter().any(|s| s == "com.apple.is-remote-clipboard") {
+            return Ok(Snapshot {
+                content: None,
+                marker: None,
+                ignored: true,
+            });
+        }
         let marker = self
             .context
             .get_buffer(MARKER)
@@ -137,6 +149,7 @@ impl SystemClipboard {
             return Ok(Snapshot {
                 content: None,
                 marker,
+                ignored: false,
             });
         }
         let content = if self.context.has(ContentFormat::Files) {
@@ -195,7 +208,11 @@ impl SystemClipboard {
         } else {
             None
         };
-        Ok(Snapshot { content, marker })
+        Ok(Snapshot {
+            content,
+            marker,
+            ignored: false,
+        })
     }
 
     pub fn description(&self) -> &'static str {
@@ -280,6 +297,9 @@ impl SystemClipboard {
             MARKER.into(),
             id.as_bytes().to_vec(),
         ));
+        #[cfg(target_os = "macos")]
+        macos_write(values)?;
+        #[cfg(not(target_os = "macos"))]
         self.context
             .set(values)
             .map_err(|e| anyhow::anyhow!("Cannot update clipboard: {e}"))?;
@@ -288,12 +308,77 @@ impl SystemClipboard {
 }
 
 #[cfg(target_os = "macos")]
-fn macos_files(paths: &[PathBuf], id: Uuid) -> Result<()> {
-    use objc2::{rc::autoreleasepool, runtime::ProtocolObject};
-    use objc2_app_kit::{NSPasteboard, NSPasteboardItem, NSPasteboardWriting};
-    use objc2_foundation::{NSArray, NSString};
+fn macos_write(values: Vec<ClipboardContent>) -> Result<()> {
+    use objc2::rc::autoreleasepool;
+    use objc2_app_kit::NSPasteboardItem;
+    use objc2_foundation::NSString;
+
     autoreleasepool(|_| {
-        let pasteboard = NSPasteboard::generalPasteboard();
+        let item = NSPasteboardItem::new();
+        for value in values {
+            let written = match value {
+                ClipboardContent::Text(text) => item.setString_forType(
+                    &NSString::from_str(&text),
+                    &NSString::from_str("public.utf8-plain-text"),
+                ),
+                ClipboardContent::Html(html) => item.setString_forType(
+                    &NSString::from_str(&html),
+                    &NSString::from_str("public.html"),
+                ),
+                ClipboardContent::Rtf(rtf) => macos_set_data(&item, "public.rtf", rtf.as_bytes()),
+                ClipboardContent::Image(image) => {
+                    let png = image
+                        .to_png()
+                        .map_err(|e| anyhow::anyhow!("Cannot encode clipboard image: {e}"))?;
+                    macos_set_data(&item, "public.png", png.get_bytes())
+                }
+                ClipboardContent::Other(format, data) => macos_set_data(&item, &format, &data),
+                ClipboardContent::Files(_) => {
+                    anyhow::bail!("Files need individual pasteboard items")
+                }
+            };
+            ensure!(written, "Cannot prepare clipboard content");
+        }
+        macos_publish(&[item])
+    })
+}
+
+#[cfg(target_os = "macos")]
+fn macos_set_data(item: &objc2_app_kit::NSPasteboardItem, format: &str, bytes: &[u8]) -> bool {
+    // NSData copies the bytes before this stack frame returns.
+    let data = unsafe {
+        objc2_foundation::NSData::dataWithBytes_length(bytes.as_ptr().cast(), bytes.len())
+    };
+    item.setData_forType(&data, &objc2_foundation::NSString::from_str(format))
+}
+
+#[cfg(target_os = "macos")]
+fn macos_publish(items: &[objc2::rc::Retained<objc2_app_kit::NSPasteboardItem>]) -> Result<()> {
+    use objc2::runtime::ProtocolObject;
+    use objc2_app_kit::{NSPasteboard, NSPasteboardContentsOptions, NSPasteboardWriting};
+    use objc2_foundation::NSArray;
+
+    let objects: Vec<_> = items
+        .iter()
+        .map(|item| ProtocolObject::<dyn NSPasteboardWriting>::from_retained(item.clone()))
+        .collect();
+    let pasteboard = NSPasteboard::generalPasteboard();
+    // This must replace clearContents(), not precede it: clearing again would
+    // discard CurrentHostOnly. Duet already delivered these items over its LAN.
+    pasteboard.prepareForNewContentsWithOptions(NSPasteboardContentsOptions::CurrentHostOnly);
+    ensure!(
+        pasteboard.writeObjects(&NSArray::from_retained_slice(&objects)),
+        "Cannot update clipboard"
+    );
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn macos_files(paths: &[PathBuf], id: Uuid) -> Result<()> {
+    use objc2::rc::autoreleasepool;
+    use objc2_app_kit::NSPasteboardItem;
+    use objc2_foundation::NSString;
+    autoreleasepool(|_| {
         let mut items = Vec::new();
         for path in paths {
             let url =
@@ -306,22 +391,13 @@ fn macos_files(paths: &[PathBuf], id: Uuid) -> Result<()> {
                 ),
                 "Cannot prepare file clipboard"
             );
-            let marker = id.as_bytes();
-            // NSData copies the bytes before this stack frame returns.
-            let data = unsafe {
-                objc2_foundation::NSData::dataWithBytes_length(marker.as_ptr().cast(), marker.len())
-            };
-            item.setData_forType(&data, &NSString::from_str(MARKER));
-            items.push(ProtocolObject::<dyn NSPasteboardWriting>::from_retained(
-                item,
-            ));
+            ensure!(
+                macos_set_data(&item, MARKER, id.as_bytes()),
+                "Cannot prepare file clipboard marker"
+            );
+            items.push(item);
         }
-        pasteboard.clearContents();
-        ensure!(
-            pasteboard.writeObjects(&NSArray::from_retained_slice(&items)),
-            "Cannot write file clipboard"
-        );
-        Ok(())
+        macos_publish(&items)
     })
 }
 
