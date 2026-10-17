@@ -1,4 +1,4 @@
-param([string]$Binary = '', [ValidateSet('x86_64','aarch64')][string]$Architecture = 'x86_64')
+param([string]$Binary = '', [ValidateSet('x64','arm64')][string]$Architecture = 'x64')
 $ErrorActionPreference = 'Stop'
 $taskRoot = Split-Path -Parent $PSScriptRoot
 . (Join-Path $PSScriptRoot 'version.ps1')

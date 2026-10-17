@@ -48,6 +48,7 @@ pub enum Command {
     SetPaused(bool),
     SetAutostart(bool),
     ClearHistory,
+    DismissNotice(String),
     Tick,
 }
 
@@ -158,6 +159,7 @@ struct Engine {
     peers: BTreeMap<String, Peer>,
     discovered: BTreeMap<String, (String, String)>,
     connecting: HashMap<String, Instant>,
+    connection_notices: HashMap<String, (String, Instant)>,
     outgoing: HashMap<Uuid, Arc<Outgoing>>,
     receiving: HashMap<Uuid, (String, Receiver)>,
     sending: HashMap<(String, Uuid), Arc<AtomicBool>>,
@@ -202,6 +204,7 @@ fn create_engine(config: Config, dir: PathBuf) -> (Engine, Handle, mpsc::Receive
         peers: BTreeMap::new(),
         discovered: BTreeMap::new(),
         connecting: HashMap::new(),
+        connection_notices: HashMap::new(),
         outgoing: HashMap::new(),
         receiving: HashMap::new(),
         sending: HashMap::new(),
@@ -216,7 +219,15 @@ pub fn start(config: Config, dir: PathBuf, runtime: &tokio::runtime::Runtime) ->
     let bus = handle.bus.clone();
     runtime.spawn(engine.run(rx));
     let network_bus = bus.clone();
+    #[cfg(feature = "ui-test")]
+    let diagnostics = std::env::var_os("DUET_LIFECYCLE_TEST_TO").is_some()
+        || std::env::var_os("DUET_SCREENSHOT_TO").is_some();
+    #[cfg(not(feature = "ui-test"))]
+    let diagnostics = false;
     runtime.spawn(async move {
+        if diagnostics {
+            return;
+        }
         if let Err(e) = network::start(config, network_bus.clone()).await {
             let _ = network_bus
                 .send(Command::Network(Event::Warning(e.to_string())))
@@ -326,6 +337,7 @@ impl Engine {
                     .1
                     .clone();
                 self.connecting.insert(id.clone(), Instant::now());
+                self.clear_connection_notice(&id);
                 network::connect(
                     address,
                     Some(id),
@@ -338,6 +350,7 @@ impl Engine {
                     !address.is_empty() && address.len() <= 300,
                     "Enter a computer address and port"
                 );
+                self.clear_connection_notice(&address);
                 network::connect(address, None, self.config.clone(), self.handle.bus.clone());
             }
             Command::Trust(id) => {
@@ -490,7 +503,26 @@ impl Engine {
                     }
                 }
             }
+            Command::DismissNotice(message) => {
+                self.handle
+                    .view
+                    .lock()
+                    .unwrap()
+                    .notices
+                    .retain(|notice| notice != &message);
+                self.connection_notices
+                    .retain(|_, (notice, _)| notice != &message);
+            }
             Command::Tick => {
+                let expired: Vec<_> = self
+                    .connection_notices
+                    .iter()
+                    .filter(|(_, (_, time))| time.elapsed() >= Duration::from_secs(30))
+                    .map(|(key, _)| key.clone())
+                    .collect();
+                for key in expired {
+                    self.clear_connection_notice(&key);
+                }
                 for peer in self.peers.values() {
                     let _ = peer.tx.send(Message::Ping);
                 }
@@ -575,6 +607,23 @@ impl Engine {
         match event {
             Event::Listening(port) => self.handle.view.lock().unwrap().port = port,
             Event::Warning(warning) => self.notice(warning),
+            Event::DiscoveryLost(id) => {
+                self.discovered.remove(&id);
+                self.connecting.remove(&id);
+                self.clear_connection_notice(&id);
+            }
+            Event::ConnectionFailed { id, address, error } => {
+                // A parallel attempt can fail after another session succeeds.
+                if id.as_ref().is_some_and(|id| self.peers.contains_key(id)) {
+                    return Ok(());
+                }
+                let key = id.unwrap_or(address.clone());
+                self.clear_connection_notice(&key);
+                let message = format!("Could not connect to {address}: {error}");
+                self.notice(message.clone());
+                self.connection_notices
+                    .insert(key, (message, Instant::now()));
+            }
             Event::Discovered { id, name, address } => {
                 self.discovered
                     .insert(id.clone(), (name, address.to_string()));
@@ -599,6 +648,10 @@ impl Engine {
                 sender,
             } => {
                 self.connecting.remove(&id);
+                self.clear_connection_notice(&id);
+                if let Some((_, address)) = self.discovered.get(&id) {
+                    self.clear_connection_notice(&address.clone());
+                }
                 if self.peers.contains_key(&id) {
                     return Ok(());
                 }
@@ -1036,6 +1089,17 @@ impl Engine {
             }
         }
     }
+    fn clear_connection_notice(&mut self, key: &str) {
+        if let Some((message, _)) = self.connection_notices.remove(key) {
+            self.handle
+                .view
+                .lock()
+                .unwrap()
+                .notices
+                .retain(|notice| notice != &message);
+        }
+    }
+
     fn notice(&self, message: String) {
         tracing::warn!("{message}");
         let mut view = self.handle.view.lock().unwrap();

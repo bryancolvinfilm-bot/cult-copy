@@ -1,5 +1,7 @@
 # Duet Clipboard
 
+<img src="packaging/icons/icon-256.png" alt="Duet Clipboard: overlapping white and green boxes" width="96" height="96">
+
 A third-party, open-source Rust tray/menu bar app that shares text, images, and ordinary files between paired computers on a local network. Each installation sends and receives. There is no central server, account, or cloud service. Licensed under the [MIT License](LICENSE).
 
 **Independent project: this app has no relation to Duet Display. It is not affiliated with, endorsed by, sponsored by, or maintained by Duet Display or its developers.** It provides separate LAN clipboard sharing that can be useful alongside display-sharing software. Duet Display is not required, and this app does not integrate with or modify it. See [NOTICE.md](NOTICE.md).
@@ -8,8 +10,31 @@ This is an early release. Mac-to-PC clipboard sharing has been confirmed working
 
 ## Downloads
 
-Get the Windows setup, universal Mac package, or Linux installer from the
+Get the download for your computer from the
 [latest public release](https://github.com/bryancolvinfilm-bot/duet-clipboard/releases/latest).
+
+| System | Processor | Recommended download | Alternative |
+| --- | --- | --- | --- |
+| Windows | Intel / AMD, x64 | `windows-x64-setup.exe` | |
+| Windows | ARM64 (Snapdragon, etc.) | `windows-arm64-setup.exe` | |
+| macOS 12+ | Apple Silicon **and** Intel | `macos-universal.dmg` | `macos-universal.pkg` |
+| Linux | Intel / AMD, x64 | `linux-x64.AppImage` | `linux-x64.run` |
+| Linux | ARM64 / aarch64 | `linux-arm64.AppImage` | `linux-arm64.run` |
+
+Each filename starts with `DuetClipboard-<version>-`. **x64** means Intel/AMD
+64-bit; **ARM64** means 64-bit Arm. The Mac universal app contains both.
+Every release includes all eight packages plus `CHECKSUMS.sha256` and
+`BUILD-INFO.json` with the source commit and package hashes.
+
+On Mac, quit the running app, open the DMG, and drag **Duet Clipboard** onto
+**Applications**. The PKG remains available for people who prefer an installer.
+On Linux, make the AppImage executable and open it. Without FUSE, run
+`./DuetClipboard-<version>-linux-<arch>.AppImage --appimage-extract-and-run`.
+Keep an AppImage in a permanent location before enabling **Start at login**.
+For applications-menu integration, run the `.run` alternative with `sh`.
+Linux downloads use the Ubuntu 24.04/glibc 2.39 baseline and system desktop and
+graphics libraries; AppImage packaging does not remove those requirements.
+
 Installers are development builds without public release signing/notarization.
 For the agent workflow that pushes, checks, builds all platforms, and publishes
 verified downloads, see [publish.md](publish.md).
@@ -22,7 +47,12 @@ verified downloads, see [publish.md](publish.md).
 4. Click the tray/menu bar icon to inspect recent text, image thumbnails, file names, and transfers.
 5. Enable **Start at login** in Settings to keep it available after signing in.
 
-Each incoming copy updates the tray/menu bar to a text/image/file icon. A small **New clipboard** desktop notification shows only the type icon and readiness/approval status, never a content snippet or filename. Copies requiring consent notify immediately; automatic copies notify when ready. Pending approvals remain marked on the tray icon and Clipboard tab. Desktop notification visibility also follows the OS notification/Focus settings.
+The white-and-green box logo stays in the tray/menu bar, with a small status dot for incoming copies. Its tooltip shows text/image/file and status. A small **New clipboard** desktop notification shows only the type icon and readiness/approval status, never a content snippet or filename. Copies requiring consent notify immediately; automatic copies notify when ready. Pending approvals remain marked on the tray icon and Clipboard tab. Desktop notification visibility also follows the OS notification/Focus settings.
+
+Expired discovery announcements disappear from Devices. A device is identified
+by its key, so two real computers with the same name stay separate and must pair
+independently. Connection errors clear on reconnection, expire after about
+30 seconds, or can be dismissed immediately.
 
 Each computer has its own receiving settings:
 
@@ -86,7 +116,10 @@ For a Mac build with prerequisite setup, use [the Mac build helper](docs/MAC-BUI
 sh scripts/package-unix.sh
 ```
 
-This produces one macOS universal `.pkg`, or one per-user Linux `.run` installer. Run the Linux installer with `sh ./DuetClipboard-<version>-linux-x86_64.run` (substitute the downloaded version) and open the app from your applications menu. Artifacts go into `dist/`. Certificates and Apple notarization are not configured; public releases need the appropriate signing setup.
+This produces a macOS universal `.dmg` and `.pkg`, or a native-architecture Linux
+`.AppImage` and per-user `.run` installer. Artifacts go into `dist/`. Linux
+packaging downloads hash-pinned versions of the official AppImage tool and
+runtime. Certificates and Apple notarization are not configured.
 
 The original Linux x64 cross-build targets glibc 2.28 or newer. A Windows cross-build can be reproduced with the Linux Rust target installed and `scripts/cross-linux.ps1 -Zig PATH_TO_ZIG_EXE`. Refresh bundled dependency notices after changing the lockfile with `scripts/generate-notices.ps1`.
 
@@ -113,3 +146,14 @@ Opening the app again activates the existing instance through an authenticated l
 - Common clipboard sensitivity markers are respected when present. Unmarked secrets cannot be reliably distinguished from ordinary copied text.
 
 Platform API references: [clipboard-rs](https://github.com/ChurchTao/clipboard-rs), [Wayland clipboard protocols](https://docs.rs/crate/wl-clipboard-rs/latest), [tray-icon](https://docs.rs/tray-icon/latest/tray_icon/), [mdns-sd](https://docs.rs/mdns-sd/latest/mdns_sd/), [Noise](https://noiseprotocol.org/noise.html).
+
+## Artwork
+
+The white-and-green overlapping boxes come from
+[`packaging/duet-clipboard.svg`](packaging/duet-clipboard.svg). Windows EXE/setup,
+Mac app bundles, Linux launchers/AppImages, and the tray use the same design.
+Run `scripts/generate-artwork.ps1` on Windows to regenerate the committed PNG,
+ICO, ICNS, and [repository preview image](docs/social-preview.png).
+To set the image shown when sharing the repository link, upload that PNG in
+**GitHub repository Settings → Social preview**. A README image alone does not
+set GitHub's social preview. See [GitHub's instructions](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/customizing-your-repositorys-social-media-preview).

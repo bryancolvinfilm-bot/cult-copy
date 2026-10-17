@@ -69,3 +69,21 @@ The app was developed on Windows. The checks below distinguish compiled code and
 The tests cover pairing before sharing; A → B → A text copies without echo; approval before even small text in manual mode; metadata-only large-file offers; preservation of a newer local clipboard; image transfer; declining; cancellation when manual mode is enabled; and rejecting late chunks from a cancelled transfer after retry.
 
 Native CI is configured in `.github/workflows/build.yml` for Windows, macOS, and Linux. Current run results are available on GitHub Actions; the table above records the original local checks. Public release signing and Apple notarization are not configured.
+# Version 0.1.3 changes
+
+Added Windows ARM64 and Linux ARM64 to the native build matrix. Linux packages
+include AppImage and per-user installers; Mac packages include DMG and PKG.
+All filenames and mandatory release assets share one architecture manifest.
+Windows embeds an ICO in the executable/setup, Mac embeds an ICNS, and Linux
+uses the same white-and-green overlapping-box logo. Incoming copies retain the
+logo with a status dot.
+
+Discovery now handles mDNS service removal, removing expired nearby rows while
+preserving paired identities and working connections. Transient connection
+warnings clear on reconnection, expire after 30 seconds, and can be dismissed.
+Diagnostic screenshot/lifecycle profiles do not advertise on the LAN.
+
+Local verification: all 16 Rust tests pass (three regression tests cover these
+device/notice failures), all-feature Clippy passes, formatting passes, and the
+release verifier rejects tampering and missing packages for every architecture.
+Native clipboard-writing tests remain reserved for CI desktops.

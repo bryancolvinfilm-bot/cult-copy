@@ -8,11 +8,8 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $taskDirectory = (Resolve-Path -LiteralPath $Directory).Path
-$taskNames = @(
-    "DuetClipboard-$Version-windows-x64-setup.exe",
-    "DuetClipboard-$Version-macos-universal.pkg",
-    "DuetClipboard-$Version-linux-x86_64.run"
-)
+. (Join-Path $PSScriptRoot 'release-targets.ps1')
+$taskNames = @(Get-ReleaseAssetNames -Version $Version)
 $taskManifestPath = Join-Path $taskDirectory 'BUILD-INFO.json'
 $taskChecksumsPath = Join-Path $taskDirectory 'CHECKSUMS.sha256'
 $taskUtf8 = [Text.UTF8Encoding]::new($false)
@@ -50,9 +47,9 @@ $taskManifest = Get-Content -LiteralPath $taskManifestPath -Raw | ConvertFrom-Js
 if ($taskManifest.version -ne $Version -or $taskManifest.source_commit -ne $SourceSha -or $taskManifest.repository -ne $Repository) {
     throw 'Build metadata does not match the requested version, repository, and source commit.'
 }
-if (@($taskManifest.assets).Count -ne 3 -or @(Compare-Object $taskNames @($taskManifest.assets.name)).Count -ne 0) { throw 'Invalid installer list in build metadata.' }
+if (@($taskManifest.assets).Count -ne $taskNames.Count -or @(Compare-Object $taskNames @($taskManifest.assets.name)).Count -ne 0) { throw 'Invalid installer list in build metadata.' }
 $taskLines = @(Get-Content -LiteralPath $taskChecksumsPath)
-if ($taskLines.Count -ne 4) { throw 'Expected checksums for three installers and BUILD-INFO.json.' }
+if ($taskLines.Count -ne ($taskNames.Count + 1)) { throw 'Expected checksums for every package and BUILD-INFO.json.' }
 $taskExpectedHashes = @{}
 foreach ($taskLine in $taskLines) {
     if ($taskLine -notmatch '^([a-f0-9]{64})  ([^/\\]+)$') { throw 'Invalid checksum line.' }
@@ -69,4 +66,4 @@ foreach ($taskName in @($taskNames) + @('BUILD-INFO.json')) {
         if ($taskEntry.sha256 -ne $taskHash -or $taskEntry.bytes -ne (Get-Item -LiteralPath $taskPath).Length) { throw "Installer metadata mismatch: $taskName" }
     }
 }
-Write-Output "Verified all three installers and checksums for v$Version at $SourceSha."
+Write-Output "Verified all $($taskNames.Count) packages and checksums for v$Version at $SourceSha."

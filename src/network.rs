@@ -5,7 +5,7 @@ use crate::{
 };
 use anyhow::{Context, Result};
 use mdns_sd::{ServiceDaemon, ServiceEvent, ServiceInfo};
-use std::{net::SocketAddr, time::Duration};
+use std::{collections::HashMap, net::SocketAddr, time::Duration};
 use tokio::{
     net::{TcpListener, TcpStream},
     sync::mpsc,
@@ -34,6 +34,12 @@ pub enum Event {
         id: String,
         name: String,
         address: SocketAddr,
+    },
+    DiscoveryLost(String),
+    ConnectionFailed {
+        id: Option<String>,
+        address: String,
+        error: String,
     },
     Connected {
         id: String,
@@ -106,13 +112,20 @@ pub async fn start(config: Config, bus: Bus) -> Result<()> {
     let discovery_bus = bus.clone();
     let own_id = id.clone();
     let discovery_task = tokio::spawn(async move {
+        let mut services = HashMap::new();
         if let Some(receiver) = discovery {
             while let Ok(event) = receiver.recv_async().await {
+                if let ServiceEvent::ServiceRemoved(_, fullname) = &event {
+                    if let Some(id) = services.remove(fullname) {
+                        emit(&discovery_bus, Event::DiscoveryLost(id)).await;
+                    }
+                }
                 if let ServiceEvent::ServiceResolved(info) = event {
                     let peer = info.get_property_val_str("id").unwrap_or_default();
                     if peer == own_id || peer.len() != 64 {
                         continue;
                     }
+                    services.insert(info.get_fullname().to_owned(), peer.to_owned());
                     let name = info
                         .get_property_val_str("name")
                         .unwrap_or("Nearby computer")
@@ -158,6 +171,7 @@ pub async fn start(config: Config, bus: Bus) -> Result<()> {
 
 pub fn connect(address: String, expected: Option<String>, config: Config, bus: Bus) {
     tokio::spawn(async move {
+        let peer_id = expected.clone();
         let result = async {
             let stream = tokio::time::timeout(Duration::from_secs(5), TcpStream::connect(&address))
                 .await??;
@@ -167,7 +181,11 @@ pub fn connect(address: String, expected: Option<String>, config: Config, bus: B
         if let Err(error) = result {
             emit(
                 &bus,
-                Event::Warning(format!("Could not connect to {address}: {error}")),
+                Event::ConnectionFailed {
+                    id: peer_id,
+                    address,
+                    error: error.to_string(),
+                },
             )
             .await;
         }
@@ -254,5 +272,8 @@ pub(crate) async fn connection(
     };
     let result = tokio::select! { result = read => result, result = write => result };
     emit(&bus, Event::Disconnected { id, session }).await;
-    result
+    if let Err(error) = result {
+        tracing::debug!("Peer session ended: {error}");
+    }
+    Ok(())
 }

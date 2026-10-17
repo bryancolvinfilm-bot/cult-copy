@@ -133,6 +133,11 @@ pub fn set_autostart(enabled: bool) -> Result<()> {
     }
     #[cfg(target_os = "linux")]
     {
+        // AppImage's mounted executable disappears at logout. Launch the
+        // persistent AppImage path instead when start-at-login is enabled.
+        let exe = std::env::var_os("APPIMAGE")
+            .map(PathBuf::from)
+            .unwrap_or(exe);
         let base = directories::BaseDirs::new().context("Cannot locate home folder")?;
         let dir = base.config_dir().join("autostart");
         fs::create_dir_all(&dir)?;

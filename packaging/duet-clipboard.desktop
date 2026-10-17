@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Duet Clipboard
+Comment=Share your clipboard with paired computers on your local network
+Exec=duet-clipboard
+Icon=duet-clipboard
+Terminal=false
+Categories=Utility;
+StartupWMClass=duet-clipboard

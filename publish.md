@@ -51,7 +51,7 @@ Public downloads: <https://github.com/bryancolvinfilm-bot/duet-clipboard/release
    for **Check** on that exact SHA. It then dispatches **Publish** for the same
    SHA, follows every platform job, and verifies the resulting public downloads.
    Do not treat a successful push or a queued build as completion.
-8. Report the source commit, release URL, and the three public installer links.
+8. Report the source commit, release URL, and the platform download table.
    State any genuine build or download failure instead of reporting success.
    Release signing/notarization is not configured; do not describe the builds
    as signed public production releases.
@@ -68,35 +68,43 @@ publish**. Pushes to `main` and pull requests run checks and build artifacts;
 they do not publish a release. A manual dispatch selects `main`, supplies its
 full `expected_sha`, and sets `publish_release=true` to publish.
 
-The metadata job verifies the requested commit and reads the version. Three
+The metadata job verifies the requested commit and reads the version. Five
 native runners then run formatting, all-feature Clippy, unit/integration tests,
 and native clipboard round trips. They build these installers:
 
-| Platform | Public asset |
+| Platform | Public assets (after `DuetClipboard-<version>-`) |
 | --- | --- |
-| Windows x64 | `DuetClipboard-<version>-windows-x64-setup.exe` |
-| macOS, Apple Silicon + Intel | `DuetClipboard-<version>-macos-universal.pkg` |
-| Linux x86_64 | `DuetClipboard-<version>-linux-x86_64.run` |
+| Windows x64 | `windows-x64-setup.exe` |
+| Windows ARM64 | `windows-arm64-setup.exe` |
+| macOS, Apple Silicon + Intel | `macos-universal.dmg`, `macos-universal.pkg` |
+| Linux x64 | `linux-x64.AppImage`, `linux-x64.run` |
+| Linux ARM64 | `linux-arm64.AppImage`, `linux-arm64.run` |
 
-Mac packaging verifies both architectures and the ad-hoc code signature. Linux
-packaging installs into a disposable directory and runs the installed binary.
+`packaging/release-targets.json` is the shared source for the runner matrix and
+required release filenames. Both publisher/verifier scripts read it; adding a
+platform requires its packages to pass the same complete-release checks.
+
+Mac packaging verifies both architectures, the ad-hoc code signature, and that
+iconutil can decode the embedded ICNS. Linux
+packaging installs into a disposable directory and runs both the installed
+binary and the AppImage without FUSE. Windows EXE/setup files embed the ICO.
 Native Linux clipboard testing uses Xvfb/X11; this does not certify every Wayland
 compositor. Windows packaging uses the native MSVC runtime configuration.
 
 Only if every platform passes does the publish job run. It downloads artifacts
-from that same workflow/SHA and requires all three installers. It creates
+from that same workflow/SHA and requires all eight packages. It creates
 `BUILD-INFO.json` with the source commit, version, workflow URL, sizes, and
 SHA-256 hashes, plus `CHECKSUMS.sha256` covering the installers and build info.
 
 It checks `main` has not changed, creates immutable tag `v<version>` pointing
-to the tested commit, and uploads the five assets to a **draft** release. It
+to the tested commit, and uploads the ten assets to a **draft** release. It
 downloads the uploaded assets and checks their hashes before making the release
 public and marking it latest. A failure leaves no partially published release.
 The release notes retain the independent-project / no-Duet-Display-affiliation
 notice and explain that the Windows/package builds are unsigned and the Mac app
 is ad-hoc signed rather than notarized.
 
-The local publisher then downloads those five files anonymously and verifies
+The local publisher then downloads those ten files anonymously and verifies
 them again. Its copies remain in an ignored `.tools/public-download-*` directory.
 GitHub Actions artifacts are temporary build products; GitHub Release assets are
 the public downloads to share with users.
@@ -128,9 +136,42 @@ gh run watch RUN_ID --exit-status
 gh release view vVERSION
 ```
 
-Verify all five public assets with `scripts/release-assets.ps1 -Mode Verify`
+Verify all ten public assets with `scripts/release-assets.ps1 -Mode Verify`
 and the expected version/source SHA. Do not select an unrelated successful run.
 
 References: [manual workflow dispatch](https://cli.github.com/manual/gh_workflow_run),
 [release creation](https://cli.github.com/manual/gh_release_create),
 [artifact handling](https://github.com/actions/upload-artifact).
+
+## Release flow
+
+```mermaid
+flowchart TD
+  A[Review changes and bump version] --> B[Local checks and commit]
+  B --> C[Push main and verify exact SHA]
+  C --> D[Wait for Check workflow]
+  D --> E[Dispatch Publish for that SHA]
+  E --> F[Windows x64 and ARM64]
+  E --> G[Mac universal: Apple Silicon and Intel]
+  E --> H[Linux x64 and ARM64]
+  F --> I[Require all eight packages]
+  G --> I
+  H --> I
+  I --> J[Build metadata and checksums]
+  J --> K[Upload draft and verify downloaded bytes]
+  K --> L[Make release public]
+  L --> M[Download anonymously and verify again]
+```
+
+AppImages use Ubuntu 24.04's glibc baseline and the user's system graphics and
+desktop libraries; they do not promise compatibility with every Linux distro.
+The `.run` alternatives install per-user desktop entries. macOS `.dmg` lets the
+user drag the app into Applications; `.pkg` remains available. Both contain the
+same universal app and embedded icon. Public filename architecture labels are
+consistently `x64`, `arm64`, or `universal`.
+
+Artwork is committed under `packaging/icons/`. Regenerate it from the SVG with
+`scripts/generate-artwork.ps1` when changing the logo. The GitHub link card uses
+`docs/social-preview.png`; setting a custom social preview is a one-time upload
+in repository Settings, separate from building the app. Keep README and release
+notes' download tables aligned with `packaging/release-targets.json`.

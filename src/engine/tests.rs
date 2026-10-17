@@ -2,6 +2,108 @@ use super::*;
 use crate::{clipboard::Snapshot, model::TextPayload};
 use std::sync::atomic::AtomicUsize;
 
+#[tokio::test]
+async fn discovery_expires_old_instances_without_merging_different_identities() {
+    let dir = tempfile::tempdir().unwrap();
+    let config = Config::load(dir.path()).unwrap();
+    let (mut engine, handle, _rx) = create_engine(config, dir.path().to_owned());
+    for id in ["old-instance", "current-instance"] {
+        for port in [4000, 4001] {
+            engine
+                .network(Event::Discovered {
+                    id: id.into(),
+                    name: "Same laptop name".into(),
+                    address: format!("127.0.0.1:{port}").parse().unwrap(),
+                })
+                .unwrap();
+        }
+    }
+    engine.publish(false);
+    assert_eq!(handle.view.lock().unwrap().peers.len(), 2);
+    engine
+        .network(Event::DiscoveryLost("old-instance".into()))
+        .unwrap();
+    engine.publish(false);
+    let view = handle.view.lock().unwrap();
+    assert_eq!(view.peers.len(), 1);
+    assert_eq!(view.peers[0].id, "current-instance");
+}
+
+#[tokio::test]
+async fn reconnect_clears_errors_and_a_losing_parallel_attempt_does_not_warn() {
+    let dir = tempfile::tempdir().unwrap();
+    let config = Config::load(dir.path()).unwrap();
+    let (mut engine, handle, _rx) = create_engine(config, dir.path().to_owned());
+    let failure = || Event::ConnectionFailed {
+        id: Some("peer".into()),
+        address: "127.0.0.1:4000".into(),
+        error: "connection reset".into(),
+    };
+    engine.network(failure()).unwrap();
+    assert_eq!(handle.view.lock().unwrap().notices.len(), 1);
+    let (control, _messages) = mpsc::channel(32);
+    let (bulk, _chunks) = mpsc::channel(4);
+    let session = Uuid::new_v4();
+    engine
+        .network(Event::Connected {
+            id: "peer".into(),
+            key: "peer-key".into(),
+            code: "123".into(),
+            session,
+            sender: PeerTx { control, bulk },
+        })
+        .unwrap();
+    assert!(handle.view.lock().unwrap().notices.is_empty());
+    engine.network(failure()).unwrap();
+    assert!(handle.view.lock().unwrap().notices.is_empty());
+    engine.network(Event::DiscoveryLost("peer".into())).unwrap();
+    assert!(
+        engine.peers.contains_key("peer"),
+        "Discovery expiry must not close a working connection"
+    );
+    engine
+        .network(Event::Disconnected {
+            id: "peer".into(),
+            session: Uuid::new_v4(),
+        })
+        .unwrap();
+    assert!(
+        engine.peers.contains_key("peer"),
+        "An obsolete session must not remove the current one"
+    );
+}
+
+#[tokio::test]
+async fn connection_warnings_expire_and_other_notices_can_be_dismissed() {
+    let dir = tempfile::tempdir().unwrap();
+    let config = Config::load(dir.path()).unwrap();
+    let (mut engine, handle, _rx) = create_engine(config, dir.path().to_owned());
+    engine.clipboard = Some(Box::new(TestClipboard {
+        memory: Arc::new(Mutex::new(Memory::default())),
+        writes: Arc::new(AtomicUsize::new(0)),
+        bus: handle.bus.clone(),
+    }));
+    engine
+        .network(Event::ConnectionFailed {
+            id: None,
+            address: "127.0.0.1:4000".into(),
+            error: "offline".into(),
+        })
+        .unwrap();
+    engine
+        .connection_notices
+        .get_mut("127.0.0.1:4000")
+        .unwrap()
+        .1 = Instant::now() - Duration::from_secs(31);
+    engine.command(Command::Tick).unwrap();
+    assert!(handle.view.lock().unwrap().notices.is_empty());
+    engine.notice("Another notice".into());
+    engine
+        .command(Command::DismissNotice("Another notice".into()))
+        .unwrap();
+    assert!(handle.view.lock().unwrap().notices.is_empty());
+}
+
 #[derive(Default)]
 struct Memory {
     content: Option<Captured>,

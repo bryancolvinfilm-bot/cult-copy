@@ -16,8 +16,8 @@ an installed app.
    if needed, runs the automated tests, and builds both Apple Silicon and Intel
    versions. An internet connection and several GB of free space are needed.
 5. When it succeeds, Finder selects
-   `dist/DuetClipboard-<version>-macos-universal.pkg`. Install that package and open
-   **Duet Clipboard** from Applications. This is an unsigned development package;
+   `dist/DuetClipboard-<version>-macos-universal.dmg`. Open it and drag the app to
+   **Applications**. A `.pkg` installer is also generated. These are development builds;
    macOS may require your approval to open it.
 6. Install the Windows setup on the PC. Open **Devices** on both computers, compare
    the pairing code, and approve on both. Copy a small piece of text on each
@@ -29,4 +29,4 @@ remain skipped. Build output is saved in `dist/mac-build.log`.
 
 For prebuilt public installers, use the repository's Releases page. To create a
 new release through native GitHub runners, follow [publish.md](../publish.md).
-Its Mac job creates the same universal `.pkg` without needing a local Mac build.
+Its Mac job creates the universal `.dmg` and `.pkg` without needing a local Mac build.

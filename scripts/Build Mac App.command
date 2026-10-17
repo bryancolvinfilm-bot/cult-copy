@@ -73,9 +73,8 @@ printf '\nBuilding Apple Silicon and Intel binaries, then packaging...\n'
 sh scripts/package-unix.sh
 
 . "$task_root/scripts/version.sh"
-task_package="$task_root/dist/DuetClipboard-$task_version-macos-universal.pkg"
-pkgutil --payload-files "$task_package" > dist/mac-package-files.txt
+task_package="$task_root/dist/DuetClipboard-$task_version-macos-universal.dmg"
 shasum -a 256 "$task_package" > dist/mac-package.sha256
 printf '\nInstaller ready: %s\n' "$task_package"
-printf '%s\n' 'Install it on your Mac, then pair it with the Windows app in Devices.'
+printf '%s\n' 'Open the disk image and drag Duet Clipboard into Applications, then pair it with Windows in Devices.'
 open -R "$task_package"

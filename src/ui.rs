@@ -537,7 +537,7 @@ impl eframe::App for App {
             .or(incoming);
         if indicator != self.last_indicator {
             if let (Some(tray), Some(notice)) = (&self._tray, &indicator) {
-                if let Ok(icon) = Icon::from_rgba(type_icon(&notice.kind, &notice.phase), 32, 32) {
+                if let Ok(icon) = Icon::from_rgba(status_icon(&notice.phase), 32, 32) {
                     let _ = tray.set_icon(Some(icon));
                 }
                 let label = match notice.kind {
@@ -549,6 +549,12 @@ impl eframe::App for App {
                     "New clipboard · {label} · {}",
                     crate::notifications::message(notice)
                 )));
+            }
+            if indicator.is_none() {
+                if let Some(tray) = &self._tray {
+                    let _ = tray.set_icon(Icon::from_rgba(icon_rgba(), 32, 32).ok());
+                    let _ = tray.set_tooltip(Some("Duet Clipboard"));
+                }
             }
             self.last_indicator = indicator;
         }
@@ -623,10 +629,16 @@ impl eframe::App for App {
                                 .corner_radius(8.0)
                                 .inner_margin(10.0)
                                 .show(ui, |ui| {
-                                    ui.label(
-                                        RichText::new(notice)
-                                            .color(Color32::from_rgb(255, 204, 170)),
-                                    );
+                                    ui.horizontal_wrapped(|ui| {
+                                        ui.label(
+                                            RichText::new(notice)
+                                                .color(Color32::from_rgb(255, 204, 170)),
+                                        );
+                                        if ui.small_button("Dismiss").clicked() {
+                                            self.handle
+                                                .send(Command::DismissNotice(notice.clone()));
+                                        }
+                                    });
                                 });
                             ui.add_space(8.0);
                         }
@@ -733,60 +745,14 @@ fn build_tray(handle: &Handle, control: &crate::window::WindowControl) -> anyhow
 }
 
 pub fn icon_rgba() -> Vec<u8> {
-    let mut pixels = vec![0u8; 32 * 32 * 4];
-    for y in 0..32 {
-        for x in 0..32 {
-            let back = (4..23).contains(&x)
-                && (3..24).contains(&y)
-                && (!(7..20).contains(&x) || !(6..21).contains(&y));
-            let front = (11..29).contains(&x)
-                && (10..30).contains(&y)
-                && (!(14..26).contains(&x) || !(13..27).contains(&y));
-            if back || front {
-                let i = (y * 32 + x) * 4;
-                pixels[i..i + 4].copy_from_slice(if front {
-                    &[109, 224, 193, 255]
-                } else {
-                    &[144, 154, 255, 255]
-                });
-            }
-        }
-    }
-    pixels
+    image::load_from_memory(include_bytes!("../packaging/icons/tray-32.png"))
+        .expect("embedded tray icon is a valid PNG")
+        .into_rgba8()
+        .into_raw()
 }
 
-fn type_icon(kind: &Kind, phase: &crate::model::NoticePhase) -> Vec<u8> {
-    let mut pixels = image::RgbaImage::new(32, 32);
-    let ink = image::Rgba([215, 231, 247, 255]);
-    for y in 3..28u32 {
-        for x in 4..28u32 {
-            let frame = match kind {
-                Kind::Text | Kind::Files => {
-                    (7..26).contains(&x)
-                        && (4..28).contains(&y)
-                        && (!(9..=23).contains(&x) || !(6..=25).contains(&y))
-                }
-                Kind::Image => {
-                    (4..29).contains(&x)
-                        && (6..26).contains(&y)
-                        && (!(6..=26).contains(&x) || !(8..=23).contains(&y))
-                }
-            };
-            let detail = match kind {
-                Kind::Text => (12..22).contains(&x) && [11, 16, 21].contains(&y),
-                Kind::Files => {
-                    (19..25).contains(&x) && (7..13).contains(&y) && (x == 19 || y == 12)
-                }
-                Kind::Image => {
-                    ((x as i32 - 11).pow(2) + (y as i32 - 12).pow(2) <= 4)
-                        || ((8..25).contains(&x) && y == 23 - (x as i32 - 17).unsigned_abs() / 2)
-                }
-            };
-            if frame || detail {
-                pixels.put_pixel(x, y, ink);
-            }
-        }
-    }
+fn status_icon(phase: &crate::model::NoticePhase) -> Vec<u8> {
+    let mut pixels = image::RgbaImage::from_raw(32, 32, icon_rgba()).unwrap();
     let color = match phase {
         crate::model::NoticePhase::ApprovalNeeded => [255, 191, 83, 255],
         crate::model::NoticePhase::Receiving => [144, 154, 255, 255],

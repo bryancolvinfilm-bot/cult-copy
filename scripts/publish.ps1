@@ -118,7 +118,8 @@ if (!$taskExistingRelease -or $taskExistingRelease.draft) {
 }
 $taskRelease = Invoke-ProjectApi -Path "releases/tags/$taskTag"
 if ($taskRelease.draft -or $taskRelease.prerelease) { throw 'The release is not a public latest release.' }
-$taskNames = @("DuetClipboard-$taskVersion-windows-x64-setup.exe", "DuetClipboard-$taskVersion-macos-universal.pkg", "DuetClipboard-$taskVersion-linux-x86_64.run", 'CHECKSUMS.sha256', 'BUILD-INFO.json')
+. (Join-Path $PSScriptRoot 'release-targets.ps1')
+$taskNames = @(Get-ReleaseAssetNames -Version $taskVersion) + @('CHECKSUMS.sha256', 'BUILD-INFO.json')
 if (@(Compare-Object $taskNames @($taskRelease.assets.name)).Count -ne 0) { throw 'Published release assets are incomplete or unexpected.' }
 $taskDownloads = Join-Path $taskRoot ('.tools\public-download-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $taskDownloads -Force | Out-Null
