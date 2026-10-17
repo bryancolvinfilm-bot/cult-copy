@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>CFBundleName</key><string>Duet Clipboard</string>
+  <key>CFBundleDisplayName</key><string>Duet Clipboard</string>
+  <key>CFBundleIdentifier</key><string>io.duetclipboard.app</string>
+  <key>CFBundleExecutable</key><string>duet-clipboard</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleShortVersionString</key><string>0.1.1</string>
+  <key>CFBundleVersion</key><string>2</string>
+  <key>LSMinimumSystemVersion</key><string>12.0</string>
+  <key>LSUIElement</key><true/>
+  <key>NSHighResolutionCapable</key><true/>
+  <key>NSLocalNetworkUsageDescription</key><string>Find and connect to your paired computers for clipboard sharing.</string>
+  <key>NSBonjourServices</key><array><string>_duetclip._tcp</string></array>
+  <key>NSDesktopFolderUsageDescription</key><string>Read files you copy so you can transfer them to your paired computers.</string>
+  <key>NSDocumentsFolderUsageDescription</key><string>Read files you copy so you can transfer them to your paired computers.</string>
+  <key>NSDownloadsFolderUsageDescription</key><string>Read files you copy so you can transfer them to your paired computers.</string>
+  <key>NSRemovableVolumesUsageDescription</key><string>Read files you copy from removable drives for clipboard sharing.</string>
+  <key>NSNetworkVolumesUsageDescription</key><string>Read files you copy from network drives for clipboard sharing.</string>
+</dict></plist>

@@ -1,0 +1,10 @@
+* text=auto eol=lf
+*.png binary
+*.ico binary
+*.exe binary
+*.dll binary
+*.zip binary
+*.gz binary
+*.pkg binary
+THIRD_PARTY_NOTICES.txt -whitespace linguist-generated=true
+packaging/RUST-STDLIB-NOTICES.html -whitespace linguist-vendored=true

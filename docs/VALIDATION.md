@@ -1,0 +1,56 @@
+# Validation
+
+## Windows tray fix in 0.1.1
+
+The 0.1.0 Windows close-to-tray failure was reproduced on the desktop: after
+closing the window, another launch exited successfully but did not restore it.
+The earlier hidden-window smoke check covered startup while hidden, and did not
+catch the close-and-reopen failure.
+
+Window requests now go through a dispatcher. On Windows it posts a native paint
+message so eframe processes requests even when the window is hidden. Native tray
+callbacks do not acquire egui's context lock. The Mac and Windows releases use
+the same network protocol; a 0.1.0 Mac does not need updating for this PC fix.
+
+The automated desktop lifecycle check repeats titlebar close, hidden engine/UI
+updates, tray Open requests, and authenticated instance activation three times.
+It also checks restoration from minimized state and process exit after Quit
+while hidden. It uses an isolated profile and does not write to the clipboard.
+The 13 existing automated tests and all-feature Clippy checks also pass.
+
+To repeat the desktop check on Windows:
+
+```powershell
+.\scripts\dev.ps1 build --release --features ui-test --locked
+.\scripts\test-windows-lifecycle.ps1
+```
+
+For a project-local GNU/LLVM build, keep the bundled `libunwind.dll` next to the
+test executable, or include the LLVM toolchain's `bin` directory in PATH.
+The production installer bundles this DLL automatically. Build without the
+`ui-test` feature when packaging the production app.
+
+## Original 0.1.0 checks
+
+The app was developed on Windows. The checks below distinguish compiled code and simulated clipboard adapters from testing on an actual desktop.
+
+| Check | Result |
+| --- | --- |
+| Windows x64 release build | Passed; required LLVM runtime is bundled with the installer. |
+| Automated tests | 13 passed. This includes real encrypted loopback sessions between app engines using isolated in-memory clipboard adapters. |
+| Formatting / Clippy | Passed, including all targets/features in the Windows toolchain. |
+| Windows GUI | Actual rendered Settings and Clipboard windows inspected. Hidden-window repaint smoke check passed. |
+| Single-instance activation | A second launch successfully activated the original background instance. |
+| Windows installer | Installed into an isolated project directory, installed executable hash matched, launched with only system folders in PATH, and test installation uninstalled successfully. |
+| Linux x64 release build | Successfully cross-compiled and linked with Zig targeting glibc 2.28. |
+| Linux installer payload | Verified the self-extracting archive boundary, extracted its contents, and verified that the executable hash matches the release build. |
+| Linux Rust type checking | Desktop code and test targets passed cross-target checking. |
+| macOS Rust type checking | Core, configuration, and AppKit clipboard adapter passed Apple Silicon target checking. Native C objects were excluded for this type-only check because the Windows host lacks the Apple SDK. |
+| Native clipboard round trips | Defined in `tests/native_clipboard.rs` and wired into native CI; deliberately not run against the user's real clipboard in this workspace. |
+| macOS installer | User successfully built the universal `.pkg`, installed it, paired with the PC, and confirmed Mac close/reopen works. Not built or runtime-tested on this Windows host. |
+| Mac build kit | Shell syntax and archive contents checked here; user confirmed the helper produced a `.pkg` on their Mac. |
+| Linux desktop runtime | Not tested on a Linux desktop here. X11 and supported Wayland compositors still need native integration validation. |
+
+The tests cover pairing before sharing; A → B → A text copies without echo; approval before even small text in manual mode; metadata-only large-file offers; preservation of a newer local clipboard; image transfer; declining; cancellation when manual mode is enabled; and rejecting late chunks from a cancelled transfer after retry.
+
+Native CI is configured in `.github/workflows/build.yml` for Windows, macOS, and Linux. It has not been executed from this workspace. Public release signing and Apple notarization are not configured.
