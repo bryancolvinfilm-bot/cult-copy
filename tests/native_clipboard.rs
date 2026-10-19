@@ -7,7 +7,7 @@ use duet_clipboard::{
 
 #[test]
 #[ignore = "changes the real clipboard; run on a disposable desktop session"]
-fn native_text_image_and_file_clipboards_round_trip() {
+fn native_text_image_file_and_folder_clipboards_round_trip() {
     let dir = tempfile::tempdir().unwrap();
     let (bus, _receiver) = tokio::sync::mpsc::channel(32);
     let clipboard = SystemClipboard::new(bus).unwrap();
@@ -76,13 +76,17 @@ fn native_text_image_and_file_clipboards_round_trip() {
         _ => panic!("Missing native image clipboard"),
     }
 
-    let paths = [
+    let mut paths = vec![
         dir.path().join("file with spaces.txt"),
         dir.path().join("café.txt"),
     ];
     for path in &paths {
         std::fs::write(path, b"copied file").unwrap();
     }
+    let folder = dir.path().join("folder café");
+    std::fs::create_dir_all(folder.join("nested/empty")).unwrap();
+    std::fs::write(folder.join("nested/file.txt"), b"nested file").unwrap();
+    paths.push(folder);
     clipboard
         .apply(&Kind::Files, &paths, uuid::Uuid::new_v4())
         .unwrap();

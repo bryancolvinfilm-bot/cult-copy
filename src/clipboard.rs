@@ -28,14 +28,34 @@ impl Captured {
         let mut hash = blake3::Hasher::new();
         hash.update(&bincode::serialize(self).expect("serializable clipboard"));
         if let Captured::Files(paths) = self {
-            for path in paths {
-                if let Ok(metadata) = std::fs::metadata(path) {
+            // A change inside a folder does not necessarily change the root's
+            // timestamp. Include nested metadata so copying it again is fresh.
+            // Use the same bounds as a transfer and never follow symbolic links.
+            let mut pending: Vec<_> = paths.iter().map(|path| (path.clone(), 1)).collect();
+            for _ in 0..=crate::model::MAX_PARTS {
+                let Some((path, depth)) = pending.pop() else {
+                    break;
+                };
+                hash.update(&bincode::serialize(&path).expect("serializable path"));
+                if let Ok(metadata) = std::fs::symlink_metadata(&path) {
+                    hash.update(&[u8::from(metadata.is_dir()), u8::from(metadata.is_symlink())]);
                     hash.update(&metadata.len().to_le_bytes());
                     if let Ok(modified) = metadata.modified().and_then(|time| {
                         time.duration_since(std::time::UNIX_EPOCH)
                             .map_err(std::io::Error::other)
                     }) {
                         hash.update(&modified.as_nanos().to_le_bytes());
+                    }
+                    if metadata.is_dir() && depth < crate::model::MAX_PATH_DEPTH {
+                        if let Ok(entries) = std::fs::read_dir(&path) {
+                            let mut children: Vec<_> = entries
+                                .take(crate::model::MAX_PARTS + 1)
+                                .filter_map(|entry| entry.ok().map(|entry| entry.path()))
+                                .collect();
+                            children.sort();
+                            pending
+                                .extend(children.into_iter().rev().map(|path| (path, depth + 1)));
+                        }
                     }
                 }
             }
@@ -409,4 +429,25 @@ pub fn check_image(path: &Path) -> Result<()> {
         "Image dimensions exceed the clipboard limit"
     );
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn copying_a_folder_again_detects_changes_to_nested_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let folder = dir.path().join("folder");
+        std::fs::create_dir_all(folder.join("nested")).unwrap();
+        let path = folder.join("nested/file.txt");
+        std::fs::write(&path, b"before").unwrap();
+        let captured = Captured::Files(vec![folder]);
+        let before = captured.signature();
+        assert_eq!(before, captured.signature());
+        std::fs::write(&path, b"after with different length").unwrap();
+        let after = captured.signature();
+        assert_ne!(before, after);
+        assert_eq!(after, captured.signature());
+    }
 }

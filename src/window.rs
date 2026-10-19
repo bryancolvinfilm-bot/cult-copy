@@ -7,6 +7,18 @@ use std::sync::{
     mpsc, Arc,
 };
 
+pub fn can_hide(cc: &eframe::CreationContext<'_>) -> bool {
+    use raw_window_handle::HasWindowHandle;
+    // Winit cannot hide a native Wayland window. Allow close to quit there
+    // instead of cancelling it and leaving an unresponsive close button.
+    cc.window_handle()
+        .is_ok_and(|handle| supports_hiding(handle.as_raw()))
+}
+
+fn supports_hiding(handle: raw_window_handle::RawWindowHandle) -> bool {
+    !matches!(handle, raw_window_handle::RawWindowHandle::Wayland(_))
+}
+
 enum Action {
     Refresh(bool),
     Open,
@@ -242,4 +254,21 @@ pub fn start_lifecycle_test(
         }
         control.quit();
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use raw_window_handle::{RawWindowHandle, WaylandWindowHandle, XlibWindowHandle};
+
+    #[test]
+    fn native_wayland_must_allow_close_while_x11_can_hide_to_tray() {
+        let wayland = WaylandWindowHandle::new(std::ptr::NonNull::dangling());
+        assert!(!supports_hiding(RawWindowHandle::Wayland(wayland)));
+        // Choose by the real window handle, since an X11 window may be running
+        // under XWayland in a session that also has WAYLAND_DISPLAY set.
+        assert!(supports_hiding(RawWindowHandle::Xlib(
+            XlibWindowHandle::new(1)
+        )));
+    }
 }

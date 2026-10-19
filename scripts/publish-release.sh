@@ -27,15 +27,17 @@ Independent, third-party open-source clipboard sharing on a local network. Not a
 | macOS | Apple Silicon + Intel, universal | [DMG](https://github.com/$task_repo/releases/download/$task_tag/DuetClipboard-$APP_VERSION-macos-universal.dmg) / [PKG](https://github.com/$task_repo/releases/download/$task_tag/DuetClipboard-$APP_VERSION-macos-universal.pkg) |
 | Linux | Intel/AMD x64 | [AppImage](https://github.com/$task_repo/releases/download/$task_tag/DuetClipboard-$APP_VERSION-linux-x64.AppImage) / [Installer](https://github.com/$task_repo/releases/download/$task_tag/DuetClipboard-$APP_VERSION-linux-x64.run) |
 | Linux | ARM64 | [AppImage](https://github.com/$task_repo/releases/download/$task_tag/DuetClipboard-$APP_VERSION-linux-arm64.AppImage) / [Installer](https://github.com/$task_repo/releases/download/$task_tag/DuetClipboard-$APP_VERSION-linux-arm64.run) |
+| Fedora 44 | Intel/AMD x64 / ARM64 | [x64 RPM](https://github.com/$task_repo/releases/download/$task_tag/DuetClipboard-$APP_VERSION-fedora-x64.rpm) / [ARM64 RPM](https://github.com/$task_repo/releases/download/$task_tag/DuetClipboard-$APP_VERSION-fedora-arm64.rpm) |
+| Rocky Linux 8 | Intel/AMD x64 / ARM64 | [x64 RPM](https://github.com/$task_repo/releases/download/$task_tag/DuetClipboard-$APP_VERSION-rocky8-x64.rpm) / [ARM64 RPM](https://github.com/$task_repo/releases/download/$task_tag/DuetClipboard-$APP_VERSION-rocky8-arm64.rpm) |
 
-Mac: open the DMG and drag the app into Applications, or use the PKG. Quit the existing app before replacing it. Linux: make the AppImage executable before opening it; alternatively run the per-user installer with sh. AppImages use the Ubuntu 24.04 baseline and need a compatible desktop and system graphics libraries. See the README for FUSE and Wayland details.
+Mac: open the DMG and drag the app into Applications, or use the PKG. Quit the existing app before replacing it. Linux: make the AppImage executable before opening it; alternatively run the per-user installer with sh. AppImages use the Ubuntu 24.04 baseline and need a compatible desktop and system graphics libraries. Fedora 44 and Rocky Linux 8 users can install their matching RPM with dnf. Rocky 8 RPMs are compiled on Rocky 8's glibc 2.28 baseline, independently of Ubuntu/Fedora builds. See the README for RPM migration, FUSE, and Wayland details.
 
 These are unsigned development builds. The Mac application is ad-hoc signed and is not Apple-notarized; operating systems may require approval before opening it. See the README for receiving consent, local cache limitations, and Linux Wayland compatibility.
 
 Source commit: [$task_sha](https://github.com/$task_repo/commit/$task_sha)
 Native tests and builds: [$task_run]($task_run)
 
-CHECKSUMS.sha256 covers all eight packages and BUILD-INFO.json. BUILD-INFO.json identifies their version, source commit, sizes, and hashes.
+CHECKSUMS.sha256 covers every package and BUILD-INFO.json. BUILD-INFO.json identifies their version, source commit, sizes, and hashes.
 EOF
 if gh release view "$task_tag" --repo "$task_repo" --json isDraft --jq '.isDraft' > existing-release.txt 2>/dev/null; then
   test "$(cat existing-release.txt)" = true || { echo 'Refusing to modify an already-published release.' >&2; exit 1; }

@@ -27,6 +27,10 @@ Public downloads: <https://github.com/bryancolvinfilm-bot/duet-clipboard/release
    `--locked` to update the package's lockfile entry, and review the lockfile
    diff. Packaging derives filenames, installer versions, and Mac bundle
    versions from `Cargo.toml`; do not edit version strings in each packager.
+   Review `packaging/release-targets.json` for every required platform, including
+   Fedora 44 and Rocky Linux 8 RPMs on both x64 and ARM64. Build each RPM inside
+   its matching distro container; an Ubuntu executable renamed as an RPM does
+   not establish Rocky 8 compatibility.
 4. Run appropriate local checks. For Rust changes, use `cargo fmt --all --
    --check`, `cargo clippy --locked --all-targets --all-features -- -D warnings`,
    and `cargo test --locked --all-targets`. The project-local Windows toolchain
@@ -68,9 +72,10 @@ publish**. Pushes to `main` and pull requests run checks and build artifacts;
 they do not publish a release. A manual dispatch selects `main`, supplies its
 full `expected_sha`, and sets `publish_release=true` to publish.
 
-The metadata job verifies the requested commit and reads the version. Five
-native runners then run formatting, all-feature Clippy, unit/integration tests,
-and native clipboard round trips. They build these installers:
+The metadata job verifies the requested commit, reads the version, and derives
+separate desktop and RPM matrices from the release-target manifest. Five desktop
+jobs and four distro-container jobs run formatting, all-feature Clippy,
+unit/integration tests, and native clipboard round trips. They build:
 
 | Platform | Public assets (after `DuetClipboard-<version>-`) |
 | --- | --- |
@@ -79,6 +84,10 @@ and native clipboard round trips. They build these installers:
 | macOS, Apple Silicon + Intel | `macos-universal.dmg`, `macos-universal.pkg` |
 | Linux x64 | `linux-x64.AppImage`, `linux-x64.run` |
 | Linux ARM64 | `linux-arm64.AppImage`, `linux-arm64.run` |
+| Fedora 44 x64 | `fedora-x64.rpm` |
+| Fedora 44 ARM64 | `fedora-arm64.rpm` |
+| Rocky Linux 8 x64 | `rocky8-x64.rpm` |
+| Rocky Linux 8 ARM64 | `rocky8-arm64.rpm` |
 
 `packaging/release-targets.json` is the shared source for the runner matrix and
 required release filenames. Both publisher/verifier scripts read it; adding a
@@ -91,20 +100,43 @@ binary and the AppImage without FUSE. Windows EXE/setup files embed the ICO.
 Native Linux clipboard testing uses Xvfb/X11; this does not certify every Wayland
 compositor. Windows packaging uses the native MSVC runtime configuration.
 
+Fedora jobs use `quay.io/fedora/fedora:44`; Rocky jobs use
+`docker.io/library/rockylinux:8` and enable PowerTools for development headers.
+Both architectures build natively on matching GitHub-hosted runners, without
+CPU emulation. RPMs include runtime library dependencies, the desktop entry,
+PNG/SVG icons, and license notices. Each job installs its RPM with DNF, runs the
+installed executable, verifies architecture and package files, validates the
+launcher and icons, then uninstalls it. Any failure blocks publication.
+
+To reproduce a distro build locally on the host architecture:
+
+```sh
+bash scripts/build-linux-distro.sh fedora
+bash scripts/build-linux-distro.sh rocky8
+# Optional second argument selects podman or docker.
+```
+
+These commands run tests, including clipboard writes, inside disposable
+containers and put RPMs in `dist/`. `scripts/package-rpm.sh` is the native
+packager for an already provisioned matching distro. Keep the distro versions,
+container tags, dependency setup, README, release notes, and this procedure
+aligned when changing the supported Fedora/Rocky baselines. Never raise the
+Rocky 8 glibc baseline by building its executable on Ubuntu or Fedora.
+
 Only if every platform passes does the publish job run. It downloads artifacts
-from that same workflow/SHA and requires all eight packages. It creates
+from that same workflow/SHA and requires all twelve packages. It creates
 `BUILD-INFO.json` with the source commit, version, workflow URL, sizes, and
 SHA-256 hashes, plus `CHECKSUMS.sha256` covering the installers and build info.
 
 It checks `main` has not changed, creates immutable tag `v<version>` pointing
-to the tested commit, and uploads the ten assets to a **draft** release. It
+to the tested commit, and uploads the fourteen assets to a **draft** release. It
 downloads the uploaded assets and checks their hashes before making the release
 public and marking it latest. A failure leaves no partially published release.
 The release notes retain the independent-project / no-Duet-Display-affiliation
 notice and explain that the Windows/package builds are unsigned and the Mac app
 is ad-hoc signed rather than notarized.
 
-The local publisher then downloads those ten files anonymously and verifies
+The local publisher then downloads those fourteen files anonymously and verifies
 them again. Its copies remain in an ignored `.tools/public-download-*` directory.
 GitHub Actions artifacts are temporary build products; GitHub Release assets are
 the public downloads to share with users.
@@ -136,7 +168,7 @@ gh run watch RUN_ID --exit-status
 gh release view vVERSION
 ```
 
-Verify all ten public assets with `scripts/release-assets.ps1 -Mode Verify`
+Verify all fourteen public assets with `scripts/release-assets.ps1 -Mode Verify`
 and the expected version/source SHA. Do not select an unrelated successful run.
 
 References: [manual workflow dispatch](https://cli.github.com/manual/gh_workflow_run),
@@ -154,9 +186,13 @@ flowchart TD
   E --> F[Windows x64 and ARM64]
   E --> G[Mac universal: Apple Silicon and Intel]
   E --> H[Linux x64 and ARM64]
-  F --> I[Require all eight packages]
+  E --> N[Fedora 44 x64 and ARM64 RPMs]
+  E --> O[Rocky Linux 8 x64 and ARM64 RPMs]
+  F --> I[Require all twelve packages]
   G --> I
   H --> I
+  N --> I
+  O --> I
   I --> J[Build metadata and checksums]
   J --> K[Upload draft and verify downloaded bytes]
   K --> L[Make release public]
@@ -169,6 +205,13 @@ The `.run` alternatives install per-user desktop entries. macOS `.dmg` lets the
 user drag the app into Applications; `.pkg` remains available. Both contain the
 same universal app and embedded icon. Public filename architecture labels are
 consistently `x64`, `arm64`, or `universal`.
+
+Fedora 44 and Rocky Linux 8 users should choose the matching distro RPM. Rocky
+8 RPMs are compiled against glibc 2.28; Fedora builds are not substitutes for
+Rocky builds. DNF resolves system desktop/graphics dependencies. Installing on
+a headless server does not provide a desktop or clipboard session. GNOME's tray
+extension and Wayland clipboard limitations still apply; container checks do
+not certify all GNOME desktop interactions.
 
 Artwork is committed under `packaging/icons/`. Regenerate it from the SVG with
 `scripts/generate-artwork.ps1` when changing the logo. The GitHub link card uses

@@ -9,6 +9,8 @@ pub const MAX_LIMIT: u64 = 1_000_000_000;
 pub const HISTORY_LIMIT: usize = 30;
 pub const MAX_PARTS: usize = 256;
 pub const MAX_INLINE: u64 = 64 * 1024 * 1024;
+pub const MAX_PATH_DEPTH: usize = 32;
+pub const MAX_PART_PATH: usize = 1024;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Version {
@@ -43,9 +45,21 @@ pub struct ClipboardNotice {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Part {
+    /// Portable relative path; a trailing slash denotes an empty-payload directory.
+    /// Keeping the wire shape unchanged preserves regular-file interoperability.
     pub name: String,
     pub size: u64,
     pub hash: String,
+}
+
+impl Part {
+    pub fn is_directory(&self) -> bool {
+        self.name.ends_with('/')
+    }
+
+    pub fn relative_path(&self) -> &str {
+        self.name.strip_suffix('/').unwrap_or(&self.name)
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -67,10 +81,32 @@ impl Offer {
         ensure!(self.title.len() <= 1024, "Title too long");
         ensure!(self.version.origin.len() == 64, "Invalid device identity");
         let mut names = std::collections::HashSet::new();
+        let mut directories = std::collections::HashSet::new();
         let mut total = 0u64;
         for part in &self.parts {
-            ensure!(safe_filename(&part.name) == part.name, "Unsafe filename");
-            ensure!(names.insert(part.name.to_lowercase()), "Duplicate filename");
+            let path = part.relative_path();
+            ensure!(part.name.len() <= MAX_PART_PATH, "File path is too long");
+            ensure!(
+                path.split('/').count() <= MAX_PATH_DEPTH
+                    && path.split('/').all(|name| safe_filename(name) == name),
+                "Unsafe file path"
+            );
+            ensure!(
+                self.kind == Kind::Files || (!part.is_directory() && !path.contains('/')),
+                "Invalid clipboard path"
+            );
+            let key = path.to_lowercase();
+            if let Some((parent, _)) = path.rsplit_once('/') {
+                ensure!(directories.contains(parent), "Missing parent directory");
+            }
+            ensure!(names.insert(key), "Duplicate file path");
+            if part.is_directory() {
+                directories.insert(path);
+                ensure!(
+                    part.size == 0 && part.hash == blake3::hash(b"").to_hex().as_str(),
+                    "Invalid directory payload"
+                );
+            }
             ensure!(
                 part.hash.len() == 64 && hex::decode(&part.hash)?.len() == 32,
                 "Invalid hash"
@@ -89,7 +125,33 @@ impl Offer {
                 "Clipboard item is too large"
             );
         }
+        // Offers use a single encrypted control frame, including directory paths.
+        use bincode::Options;
+        ensure!(
+            bincode::DefaultOptions::new()
+                .serialized_size(&crate::protocol::Message::Offer(self.clone()))?
+                <= (crate::protocol::FRAME_LIMIT - 16) as u64,
+            "Selection has too much file metadata"
+        );
         Ok(())
+    }
+
+    pub fn clipboard_parts(&self) -> impl Iterator<Item = &Part> {
+        self.parts
+            .iter()
+            .filter(|part| !part.relative_path().contains('/'))
+    }
+
+    pub fn part_size(&self, part: &Part) -> u64 {
+        if part.is_directory() {
+            self.parts
+                .iter()
+                .filter(|child| child.name.starts_with(&part.name))
+                .map(|child| child.size)
+                .sum()
+        } else {
+            part.size
+        }
     }
 
     pub fn needs_approval(&self, limit: u64) -> bool {
@@ -232,5 +294,58 @@ mod tests {
         value.total = 100;
         assert!(value.validate().is_err());
         assert_ne!(safe_filename("CON.txt"), "CON.txt");
+    }
+
+    #[test]
+    fn folder_manifests_require_safe_unique_paths_and_declared_parents() {
+        let mut value = offer(&[0, 1]);
+        value.parts[0].name = "folder/".into();
+        value.parts[0].hash = blake3::hash(b"").to_hex().to_string();
+        value.parts[1].name = "folder/file.txt".into();
+        value.validate().unwrap();
+        for name in [
+            "folder/../escape",
+            "folder/./escape",
+            "folder//escape",
+            "/absolute",
+            "folder/C:drive",
+            "folder/CON.txt",
+            "folder\\escape",
+            "other/file.txt",
+            "FOLDER/file.txt",
+            "FOLDER",
+        ] {
+            value.parts[1].name = name.into();
+            assert!(value.validate().is_err(), "Accepted {name}");
+        }
+        value.parts[1].name = "folder/file.txt".into();
+        value.parts[0].name = "folder".into();
+        assert!(value.validate().is_err(), "A file cannot be a parent");
+        value.parts[0].name = "folder/".into();
+        value.parts[0].size = 1;
+        value.total = 2;
+        assert!(value.validate().is_err(), "Directories cannot carry bytes");
+        value.parts[0].size = 0;
+        value.total = 1;
+        value.kind = Kind::Image;
+        assert!(value.validate().is_err());
+    }
+
+    #[test]
+    fn metadata_must_fit_in_one_control_frame() {
+        let mut value = offer(&[0; MAX_PARTS]);
+        for (i, part) in value.parts.iter_mut().enumerate() {
+            part.name = format!("{i}-{}", "x".repeat(160));
+        }
+        value.validate().unwrap();
+        // Deep directory paths also count against the frame limit.
+        let mut directory = value.parts[0].clone();
+        directory.name = format!("{}/", "d".repeat(160));
+        directory.hash = blake3::hash(b"").to_hex().to_string();
+        for part in &mut value.parts[1..] {
+            part.name = format!("{}{}", directory.name, part.name);
+        }
+        value.parts[0] = directory;
+        assert!(value.validate().is_err());
     }
 }

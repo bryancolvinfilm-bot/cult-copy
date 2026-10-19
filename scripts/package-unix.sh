@@ -42,8 +42,9 @@ case "$(uname -s)" in
       *) echo 'Linux packaging supports x64 and ARM64.' >&2; exit 1 ;;
     esac
     mkdir -p dist/linux-payload
-    cp target/release/duet-clipboard packaging/duet-clipboard.svg LICENSE NOTICE.md THIRD_PARTY_NOTICES.txt packaging/RUST-STDLIB-NOTICES.html dist/linux-payload/
-    tar -czf dist/linux-payload.tar.gz -C dist/linux-payload duet-clipboard duet-clipboard.svg LICENSE NOTICE.md THIRD_PARTY_NOTICES.txt RUST-STDLIB-NOTICES.html
+    cp target/release/duet-clipboard packaging/duet-clipboard.svg packaging/duet-clipboard.desktop LICENSE NOTICE.md THIRD_PARTY_NOTICES.txt packaging/RUST-STDLIB-NOTICES.html dist/linux-payload/
+    cp packaging/icons/icon-256.png dist/linux-payload/duet-clipboard.png
+    tar -czf dist/linux-payload.tar.gz -C dist/linux-payload duet-clipboard duet-clipboard.svg duet-clipboard.png duet-clipboard.desktop LICENSE NOTICE.md THIRD_PARTY_NOTICES.txt RUST-STDLIB-NOTICES.html
     cat packaging/linux-installer.sh > "dist/DuetClipboard-$task_version-linux-$task_arch.run"
     cat dist/linux-payload.tar.gz >> "dist/DuetClipboard-$task_version-linux-$task_arch.run"
     chmod +x "dist/DuetClipboard-$task_version-linux-$task_arch.run"

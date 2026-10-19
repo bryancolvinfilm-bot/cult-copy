@@ -1,5 +1,46 @@
 # Validation
 
+## Version 0.1.5 Linux integration, folders, and distro builds
+
+The Linux window now uses the `duet-clipboard` app ID, matching the launcher
+filename and `StartupWMClass`. The per-user installer uses the shared desktop
+entry, installs both PNG and SVG icons, and refreshes available desktop/icon
+caches. Autostart entries include the same icon and window class.
+
+Close hides the window when a tray is available and the backend supports hiding.
+Native Wayland close quits; the regression check selects behavior from the actual
+window handle so XWayland retains close-to-tray.
+
+Folder transfers preserve nested contents, hidden files, and empty directories.
+Only the selected roots become clipboard items. Receivers validate relative
+paths and all payload hashes before publishing the completed tree. The existing
+selection bound includes directories; see the limits and exclusions in README.
+
+Local Linux checks: all 31 automated tests passed, including encrypted loopback
+folder transfer, combined-size approval, clipboard echo suppression, copying a
+received folder from history, restoring folder history, portable filename
+collisions, invalid paths, transfer cleanup, and nested clipboard signatures.
+All-target/all-feature Clippy, formatting, shell syntax, and desktop-entry
+validation passed. An isolated installer smoke check exercised installation and
+update under a path containing spaces, a percent sign, and a literal dollar
+sign; the installed executable ran and PNG/SVG bytes matched the source icons.
+
+The native clipboard round-trip test now includes a folder, but remains ignored
+on the working desktop because it replaces the real clipboard. The release
+workflow runs it on disposable Windows/macOS desktops and Xvfb Linux sessions.
+Visual verification of the Fedora GNOME launcher, dock, Alt+Tab, and close
+behavior remains a desktop check.
+
+The release matrix now requires Fedora 44 and Rocky Linux 8 RPMs for x64 and
+ARM64, in addition to the existing eight installers. Each RPM is compiled in
+its distro container on a matching native runner. Distro jobs run the Rust
+checks and native X11 clipboard test, then use DNF to verify dependency
+resolution, installation, executable version/architecture, launcher/icons,
+package integrity, and removal. Rocky builds use glibc 2.28. The local release
+verifier passed with twelve packages and rejected modified bytes, a wrong
+source SHA, and every missing package. See the workflow linked by each release's
+`BUILD-INFO.json` for the actual native build results.
+
 ## Version 0.1.4 Mac clipboard coexistence
 
 Duet now skips Apple's remote-clipboard announcements before reading any values,

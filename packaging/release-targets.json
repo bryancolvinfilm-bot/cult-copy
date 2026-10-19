@@ -3,5 +3,9 @@
   { "id": "windows-arm64", "runner": "windows-11-arm", "arch": "arm64", "rust_target": "aarch64-pc-windows-msvc", "packages": ["windows-arm64-setup.exe"] },
   { "id": "macos-universal", "runner": "macos-15", "arch": "universal", "rust_target": "aarch64-apple-darwin", "packages": ["macos-universal.dmg", "macos-universal.pkg"] },
   { "id": "linux-x64", "runner": "ubuntu-24.04", "arch": "x64", "rust_target": "x86_64-unknown-linux-gnu", "packages": ["linux-x64.AppImage", "linux-x64.run"] },
-  { "id": "linux-arm64", "runner": "ubuntu-24.04-arm", "arch": "arm64", "rust_target": "aarch64-unknown-linux-gnu", "packages": ["linux-arm64.AppImage", "linux-arm64.run"] }
+  { "id": "linux-arm64", "runner": "ubuntu-24.04-arm", "arch": "arm64", "rust_target": "aarch64-unknown-linux-gnu", "packages": ["linux-arm64.AppImage", "linux-arm64.run"] },
+  { "id": "fedora-x64", "build_kind": "rpm", "distro": "fedora", "container": "quay.io/fedora/fedora:44", "runner": "ubuntu-24.04", "arch": "x64", "rust_target": "x86_64-unknown-linux-gnu", "packages": ["fedora-x64.rpm"] },
+  { "id": "fedora-arm64", "build_kind": "rpm", "distro": "fedora", "container": "quay.io/fedora/fedora:44", "runner": "ubuntu-24.04-arm", "arch": "arm64", "rust_target": "aarch64-unknown-linux-gnu", "packages": ["fedora-arm64.rpm"] },
+  { "id": "rocky8-x64", "build_kind": "rpm", "distro": "rocky8", "container": "docker.io/library/rockylinux:8", "runner": "ubuntu-24.04", "arch": "x64", "rust_target": "x86_64-unknown-linux-gnu", "packages": ["rocky8-x64.rpm"] },
+  { "id": "rocky8-arm64", "build_kind": "rpm", "distro": "rocky8", "container": "docker.io/library/rockylinux:8", "runner": "ubuntu-24.04-arm", "arch": "arm64", "rust_target": "aarch64-unknown-linux-gnu", "packages": ["rocky8-arm64.rpm"] }
 ]

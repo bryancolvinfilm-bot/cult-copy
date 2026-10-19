@@ -69,6 +69,7 @@ fn run() -> Result<()> {
     let options = eframe::NativeOptions {
         viewport: eframe::egui::ViewportBuilder::default()
             .with_title("Duet Clipboard")
+            .with_app_id("duet-clipboard")
             .with_inner_size([560.0, 720.0])
             .with_min_inner_size([440.0, 420.0])
             .with_visible(!args.iter().any(|a| a == "--background"))

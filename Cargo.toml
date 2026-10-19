@@ -1,6 +1,6 @@
 [package]
 name = "duet-clipboard"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2021"
 rust-version = "1.90"
 description = "A private, peer-to-peer clipboard for your computers"
@@ -25,6 +25,7 @@ hostname = "0.4"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 mdns-sd = "0.21"
 notify-rust = { version = "4.18.2", optional = true }
+raw-window-handle = { version = "0.6", optional = true }
 serde = { version = "1", features = ["derive", "rc"] }
 serde_json = "1"
 snow = "0.10"
@@ -44,7 +45,6 @@ objc2-foundation = { version = "0.3.2", features = ["NSArray", "NSString"] }
 objc2-app-kit = { version = "0.3.2", features = ["NSPasteboard", "NSPasteboardItem"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
-raw-window-handle = { version = "0.6", optional = true }
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"], optional = true }
 
 [target.'cfg(not(target_os = "linux"))'.dependencies]

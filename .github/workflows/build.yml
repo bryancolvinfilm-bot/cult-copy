@@ -28,6 +28,7 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
       matrix: ${{ steps.version.outputs.matrix }}
+      rpm_matrix: ${{ steps.version.outputs.rpm_matrix }}
     steps:
       - uses: actions/checkout@v4
       - name: Release verifier checks
@@ -47,7 +48,8 @@ jobs:
           . ./scripts/version.ps1
           "version=$(Get-AppVersion)" >> $env:GITHUB_OUTPUT
           $targets = @(Get-Content packaging/release-targets.json -Raw | ConvertFrom-Json)
-          "matrix=$(@{include=$targets} | ConvertTo-Json -Depth 8 -Compress)" >> $env:GITHUB_OUTPUT
+          "matrix=$(@{include=@($targets | Where-Object { $_.build_kind -ne 'rpm' })} | ConvertTo-Json -Depth 8 -Compress)" >> $env:GITHUB_OUTPUT
+          "rpm_matrix=$(@{include=@($targets | Where-Object { $_.build_kind -eq 'rpm' })} | ConvertTo-Json -Depth 8 -Compress)" >> $env:GITHUB_OUTPUT
       - name: Verify release can be created
         if: github.event_name == 'workflow_dispatch' && inputs.publish_release
         shell: bash
@@ -120,6 +122,11 @@ jobs:
           task_install_dir=$(mktemp -d "$RUNNER_TEMP/duet-install.XXXXXXXX")
           XDG_DATA_HOME="$task_install_dir/share" sh "dist/DuetClipboard-$APP_VERSION-linux-${{ matrix.arch }}.run"
           "$task_install_dir/share/duet-clipboard/duet-clipboard" --version
+          desktop-file-validate "$task_install_dir/share/applications/duet-clipboard.desktop"
+          test "$(sed -n 's/^Icon=//p' "$task_install_dir/share/applications/duet-clipboard.desktop")" = duet-clipboard
+          test "$(sed -n 's/^StartupWMClass=//p' "$task_install_dir/share/applications/duet-clipboard.desktop")" = duet-clipboard
+          cmp packaging/icons/icon-256.png "$task_install_dir/share/icons/hicolor/256x256/apps/duet-clipboard.png"
+          cmp packaging/duet-clipboard.svg "$task_install_dir/share/icons/hicolor/scalable/apps/duet-clipboard.svg"
           chmod +x "dist/DuetClipboard-$APP_VERSION-linux-${{ matrix.arch }}.AppImage"
           "dist/DuetClipboard-$APP_VERSION-linux-${{ matrix.arch }}.AppImage" --appimage-extract-and-run --version
           desktop-file-validate dist/*.AppDir/duet-clipboard.desktop
@@ -141,9 +148,58 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  rpm:
+    name: Build ${{ matrix.id }}
+    needs: metadata
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.metadata.outputs.rpm_matrix) }}
+    runs-on: ${{ matrix.runner }}
+    container: ${{ matrix.container }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      # Checkout's Node runtime needs libstdc++/glibc; install Git and the build
+      # libraries in the target distro before executing any JavaScript actions.
+      - name: Bootstrap distro tools
+        run: dnf -y install git tar gzip curl ca-certificates libstdc++
+      - uses: actions/checkout@v4
+      - name: Distro build dependencies
+        run: sh scripts/linux-distro-deps.sh '${{ matrix.distro }}'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable-${{ matrix.rust_target }}
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+          key: ${{ matrix.id }}
+      - name: Verify native architecture
+        env:
+          EXPECTED_HOST: ${{ matrix.rust_target }}
+        run: |
+          test "$(rustc -vV | sed -n 's/^host: //p')" = "$EXPECTED_HOST"
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --locked --all-targets --all-features -- -D warnings
+      - run: cargo test --locked --all-targets
+      - name: Native distro X11 clipboard
+        run: dbus-run-session -- xvfb-run -a cargo test --locked --test native_clipboard -- --ignored --test-threads=1
+      - name: Build RPM in target distro
+        run: sh scripts/package-rpm.sh '${{ matrix.distro }}'
+      - name: Install and uninstall RPM
+        run: sh scripts/test-linux-rpm.sh '${{ matrix.distro }}'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DuetClipboard-${{ matrix.id }}-${{ github.sha }}
+          path: dist/*.rpm
+          if-no-files-found: error
+          retention-days: 14
+
   publish:
     if: github.event_name == 'workflow_dispatch' && inputs.publish_release
-    needs: [metadata, desktop]
+    needs: [metadata, desktop, rpm]
     runs-on: ubuntu-24.04
     permissions:
       contents: write

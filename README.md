@@ -2,7 +2,7 @@
 
 <img src="packaging/icons/icon-256.png" alt="Duet Clipboard: overlapping white and green boxes" width="96" height="96">
 
-A third-party, open-source Rust tray/menu bar app that shares text, images, and ordinary files between paired computers on a local network. Each installation sends and receives. There is no central server, account, or cloud service. Licensed under the [MIT License](LICENSE).
+A third-party, open-source Rust tray/menu bar app that shares text, images, files, and folders between paired computers on a local network. Each installation sends and receives. There is no central server, account, or cloud service. Licensed under the [MIT License](LICENSE).
 
 **Independent project: this app has no relation to Duet Display. It is not affiliated with, endorsed by, sponsored by, or maintained by Duet Display or its developers.** It provides separate LAN clipboard sharing that can be useful alongside display-sharing software. Duet Display is not required, and this app does not integrate with or modify it. See [NOTICE.md](NOTICE.md).
 
@@ -12,7 +12,7 @@ This is an early release. Mac-to-PC clipboard sharing has been confirmed working
 
 Get the download for your computer from the
 [latest public release](https://github.com/bryancolvinfilm-bot/duet-clipboard/releases/latest).
-The matrix below applies to v0.1.3 and newer; earlier releases have fewer downloads.
+The matrix below applies to v0.1.5 and newer; earlier releases have fewer downloads.
 
 | System | Processor | Recommended download | Alternative |
 | --- | --- | --- | --- |
@@ -21,10 +21,14 @@ The matrix below applies to v0.1.3 and newer; earlier releases have fewer downlo
 | macOS 12+ | Apple Silicon **and** Intel | `macos-universal.dmg` | `macos-universal.pkg` |
 | Linux | Intel / AMD, x64 | `linux-x64.AppImage` | `linux-x64.run` |
 | Linux | ARM64 / aarch64 | `linux-arm64.AppImage` | `linux-arm64.run` |
+| Fedora 44 | Intel / AMD, x64 | `fedora-x64.rpm` | |
+| Fedora 44 | ARM64 / aarch64 | `fedora-arm64.rpm` | |
+| Rocky Linux 8 | Intel / AMD, x64 | `rocky8-x64.rpm` | |
+| Rocky Linux 8 | ARM64 / aarch64 | `rocky8-arm64.rpm` | |
 
 Each filename starts with `DuetClipboard-<version>-`. **x64** means Intel/AMD
 64-bit; **ARM64** means 64-bit Arm. The Mac universal app contains both.
-Every release built from this matrix includes all eight packages plus `CHECKSUMS.sha256` and
+Every release built from this matrix includes all twelve packages plus `CHECKSUMS.sha256` and
 `BUILD-INFO.json` with the source commit and package hashes.
 
 On Mac, quit the running app, open the DMG, and drag **Duet Clipboard** onto
@@ -35,6 +39,16 @@ Keep an AppImage in a permanent location before enabling **Start at login**.
 For applications-menu integration, run the `.run` alternative with `sh`.
 Linux downloads use the Ubuntu 24.04/glibc 2.39 baseline and system desktop and
 graphics libraries; AppImage packaging does not remove those requirements.
+
+Fedora 44 and Rocky Linux 8 also have native RPMs, built separately inside each
+distro for x64 and ARM64. Install the matching download with
+`sudo dnf install ./DuetClipboard-<version>-<fedora|rocky8>-<arch>.rpm`.
+The Rocky 8 build uses its glibc 2.28 baseline; the Fedora RPM targets Fedora 44.
+DNF installs the desktop library dependencies, launcher, and icons system-wide.
+When switching from a per-user `.run` installation, quit Duet and remove the old
+`~/.local/share/applications/duet-clipboard.desktop` (or the equivalent under
+`$XDG_DATA_HOME`) so it does not override the RPM's launcher. Clipboard settings
+and history use the same per-user profile.
 
 Installers are development builds without public release signing/notarization.
 For the agent workflow that pushes, checks, builds all platforms, and publishes
@@ -97,7 +111,7 @@ Handoff remains on; macOS provides no supported app-level exclusive clipboard mo
 
 All computers need a reachable IP network; a display/USB connection by itself is insufficient. Discovery uses mDNS on the local network. Guest Wi-Fi, multicast filtering, VPNs, and firewalls may block it. **Connect by address** accepts the other computer's LAN address and the port displayed in Devices. Current discovery/listening uses IPv4.
 
-The implementation supports plain text, HTML/RTF alternatives, copied raster images, and selections of up to 256 regular files. Folder copying and application-private clipboard objects are not implemented. Text/image payloads are capped at 64 MiB as a resource bound; the automatic-download slider does not remove that bound. Large regular files stream in bounded chunks rather than being loaded into memory.
+The implementation supports plain text, HTML/RTF alternatives, copied raster images, and files or folders with their nested contents, including hidden files and empty directories. Each selection can contain up to 256 files and directories in total, including the selected roots, with at most 32 path components. Very long path metadata may reach the control-frame limit sooner. Names are made portable across operating systems, with collisions renamed. Symbolic links, Windows junctions, and special files are rejected; permissions and other filesystem metadata are not transferred. Application-private clipboard objects are not implemented. Text/image payloads are capped at 64 MiB as a resource bound; the automatic-download slider does not remove that bound. Large regular files stream in bounded chunks rather than being loaded into memory. Folder transfers require updated apps on both computers; regular-file transfers retain their existing wire format.
 
 ### History and storage limits
 
@@ -143,11 +157,29 @@ This produces a macOS universal `.dmg` and `.pkg`, or a native-architecture Linu
 packaging downloads hash-pinned versions of the official AppImage tool and
 runtime. Certificates and Apple notarization are not configured.
 
+To reproduce a Fedora 44 or Rocky Linux 8 RPM on any Linux host with Podman
+(or Docker), use the isolated distro builder. It copies only build sources,
+installs dependencies in a disposable container, compiles with stable Rust,
+runs the tests and an Xvfb clipboard round trip, and checks RPM installation and
+removal. It builds for the host CPU architecture and writes the RPM to `dist/`:
+
+```sh
+bash scripts/build-linux-distro.sh fedora
+bash scripts/build-linux-distro.sh rocky8
+# To select Docker explicitly:
+bash scripts/build-linux-distro.sh rocky8 docker
+```
+
+For an already provisioned native Fedora 44 or Rocky Linux 8 development
+environment, run `sh scripts/package-rpm.sh fedora` or
+`sh scripts/package-rpm.sh rocky8`. The dependency setup and install/uninstall
+checks are intended for disposable build containers, not a working desktop.
+
 The original Linux x64 cross-build targets glibc 2.28 or newer. A Windows cross-build can be reproduced with the Linux Rust target installed and `scripts/cross-linux.ps1 -Zig PATH_TO_ZIG_EXE`. Refresh bundled dependency notices after changing the lockfile with `scripts/generate-notices.ps1`.
 
 See [validation results](docs/VALIDATION.md) for what was actually tested and which native desktop checks remain.
 
-The native CI workflow builds/tests on Windows, macOS, and Linux, and creates installers on their respective operating systems. GitHub-hosted Linux release builds use Ubuntu 24.04; older distributions may need a source or compatibility cross-build. A requested publish runs all platforms and makes verified installers available on GitHub Releases; see [publish.md](publish.md). Native clipboard tests are explicitly ignored in ordinary local test runs because they replace the real clipboard. Run them only in a disposable desktop session:
+The native CI workflow builds/tests on Windows, macOS, Ubuntu, Fedora 44, and Rocky Linux 8, and creates installers in their respective environments. Fedora/Rocky RPMs use native x64 or ARM64 runners with matching distro containers. AppImage and `.run` builds use Ubuntu 24.04. A requested publish runs all platforms and makes verified installers available on GitHub Releases; see [publish.md](publish.md). Native clipboard tests are explicitly ignored in ordinary local test runs because they replace the real clipboard. Run them only in a disposable desktop session:
 
 ```sh
 cargo test --test native_clipboard -- --ignored --test-threads=1
@@ -156,6 +188,8 @@ cargo test --test native_clipboard -- --ignored --test-threads=1
 CLI options: `--background`, `--data-dir PATH`, `--version`, `--help`. `--data-dir` is useful for isolated test profiles. Only one instance runs per profile.
 
 Opening the app again activates the existing instance through an authenticated loopback-only endpoint. This also provides a way to reopen the window on Linux desktops without a tray host.
+
+Closing the window hides it to the tray on Windows, macOS, and Linux X11 when a tray is available. On native Wayland, close quits the app because the [window backend does not support hiding](https://docs.rs/winit/0.30.13/winit/window/struct.Window.html#method.set_visible). Close also quits when the tray could not be created. Linux's per-user installer installs PNG/SVG launcher icons and a desktop entry matching the window's `duet-clipboard` app ID.
 
 ## Design
 

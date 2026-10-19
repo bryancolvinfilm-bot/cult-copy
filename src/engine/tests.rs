@@ -431,6 +431,116 @@ async fn large_files_send_metadata_first_and_keep_a_newer_local_clipboard() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn recursive_folder_transfer_uses_combined_consent_and_can_be_copied_from_history() {
+    let a = Computer::new(false, crate::model::DEFAULT_LIMIT);
+    let b = Computer::new(false, MIN_LIMIT);
+    connect(&a, &b).await;
+    trust(&a, &b).await;
+    let folder = a.dir.path().join("Project café");
+    std::fs::create_dir_all(folder.join("nested/empty")).unwrap();
+    let bytes = vec![17u8; 300_000];
+    std::fs::write(folder.join("one.bin"), &bytes).unwrap();
+    std::fs::write(folder.join("nested/two.bin"), &bytes).unwrap();
+    a.copy(Captured::Files(vec![folder.clone()]));
+    wait_for(&b.handle, |v| {
+        v.history
+            .first()
+            .is_some_and(|i| i.status == Status::AwaitingApproval)
+    })
+    .await;
+    assert!(!b.dir.path().join("received").exists());
+    assert_eq!(b.writes.load(Ordering::Relaxed), 0);
+    let id = b.handle.view.lock().unwrap().history[0].offer.id;
+    assert_eq!(
+        b.handle.view.lock().unwrap().history[0].offer.total,
+        600_000
+    );
+    b.handle.send(Command::Receive(id));
+    wait_for(&b.handle, |v| {
+        v.history[0].status == Status::Ready && v.history[0].applied
+    })
+    .await;
+    let paths = match &b.memory.lock().unwrap().content {
+        Some(Captured::Files(paths)) => paths.clone(),
+        _ => panic!("Expected a pasteable folder"),
+    };
+    assert_eq!(paths.len(), 1);
+    assert_eq!(paths[0].file_name().unwrap(), "Project café");
+    assert_eq!(std::fs::read(paths[0].join("one.bin")).unwrap(), bytes);
+    assert_eq!(
+        std::fs::read(paths[0].join("nested/two.bin")).unwrap(),
+        bytes
+    );
+    assert!(paths[0].join("nested/empty").is_dir());
+    assert_eq!(std::fs::read(folder.join("one.bin")).unwrap(), bytes);
+    assert_eq!(a.writes.load(Ordering::Relaxed), 0, "No clipboard echo");
+
+    b.handle.send(Command::Copy(id));
+    wait_for(&a.handle, |v| {
+        v.history.iter().any(|i| i.status == Status::Ready)
+    })
+    .await;
+    let copied = match &a.memory.lock().unwrap().content {
+        Some(Captured::Files(paths)) => paths.clone(),
+        _ => panic!("Expected folder copied from history"),
+    };
+    assert_eq!(copied.len(), 1);
+    assert!(copied[0].join("nested/empty").is_dir());
+    assert_eq!(
+        std::fs::read(copied[0].join("nested/two.bin")).unwrap(),
+        bytes
+    );
+}
+
+#[tokio::test]
+async fn restoring_folder_history_retains_roots_and_resolves_nested_upload_paths() {
+    let dir = tempfile::tempdir().unwrap();
+    let config = Config::load(dir.path()).unwrap();
+    let folder = dir.path().join("folder");
+    std::fs::create_dir_all(folder.join("nested/empty")).unwrap();
+    std::fs::write(folder.join("nested/file.txt"), b"history bytes").unwrap();
+    let item = storage::prepare(
+        Captured::Files(vec![folder.clone()]),
+        Version {
+            counter: 1,
+            origin: config.id(),
+        },
+        &dir.path().join("outgoing"),
+    )
+    .unwrap();
+    let id = item.offer.id;
+    let (mut engine, _, _) = create_engine(config.clone(), dir.path().to_owned());
+    engine.history.push_front(HistoryItem {
+        offer: item.offer,
+        device: config.name.clone(),
+        peer: config.id(),
+        status: Status::Local,
+        paths: item.paths,
+        preview: None,
+        transferred: 13,
+        started: None,
+        applied: false,
+    });
+    engine.save_history();
+    let (mut restored, _, _) = create_engine(config, dir.path().to_owned());
+    restored.restore_history();
+    assert_eq!(restored.history.len(), 1);
+    assert_eq!(
+        restored.history[0].paths.as_slice(),
+        std::slice::from_ref(&folder)
+    );
+    let outgoing = restored.outgoing.get(&id).unwrap();
+    assert_eq!(outgoing.paths, [folder]);
+    let paths = outgoing.part_paths().unwrap();
+    assert!(paths
+        .iter()
+        .any(|p| p.ends_with("nested/empty") && p.is_dir()));
+    assert!(paths
+        .iter()
+        .any(|p| p.ends_with("nested/file.txt") && std::fs::read(p).unwrap() == b"history bytes"));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn image_bytes_transfer_and_declining_never_changes_the_clipboard() {
     let a = Computer::new(false, crate::model::DEFAULT_LIMIT);
     let b = Computer::new(true, crate::model::DEFAULT_LIMIT);

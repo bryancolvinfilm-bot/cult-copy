@@ -150,7 +150,7 @@ pub fn set_autostart(enabled: bool) -> Result<()> {
                 .replace('`', "\\`")
                 .replace('$', "\\$")
                 .replace('%', "%%");
-            fs::write(path, format!("[Desktop Entry]\nType=Application\nName=Duet Clipboard\nExec=\"{command}\" --background\nTerminal=false\nX-GNOME-Autostart-enabled=true\n"))?;
+            fs::write(path, format!("[Desktop Entry]\nType=Application\nName=Duet Clipboard\nExec=\"{command}\" --background\nIcon=duet-clipboard\nStartupWMClass=duet-clipboard\nTerminal=false\nX-GNOME-Autostart-enabled=true\n"))?;
         } else if path.exists() {
             fs::remove_file(path)?;
         }

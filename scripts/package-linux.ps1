@@ -17,12 +17,14 @@ $taskPayload = Join-Path $taskRoot 'dist\linux-payload'
 New-Item -ItemType Directory -Path $taskPayload -Force | Out-Null
 Copy-Item -LiteralPath $Binary -Destination (Join-Path $taskPayload 'duet-clipboard') -Force
 Copy-Item -LiteralPath (Join-Path $taskRoot 'packaging\duet-clipboard.svg') -Destination $taskPayload -Force
+Copy-Item -LiteralPath (Join-Path $taskRoot 'packaging\duet-clipboard.desktop') -Destination $taskPayload -Force
+Copy-Item -LiteralPath (Join-Path $taskRoot 'packaging\icons\icon-256.png') -Destination (Join-Path $taskPayload 'duet-clipboard.png') -Force
 Copy-Item -LiteralPath (Join-Path $taskRoot 'LICENSE') -Destination $taskPayload -Force
 Copy-Item -LiteralPath (Join-Path $taskRoot 'NOTICE.md') -Destination $taskPayload -Force
 Copy-Item -LiteralPath (Join-Path $taskRoot 'THIRD_PARTY_NOTICES.txt') -Destination $taskPayload -Force
 Copy-Item -LiteralPath (Join-Path $taskRoot 'packaging\RUST-STDLIB-NOTICES.html') -Destination $taskPayload -Force
 $taskArchive = Join-Path $taskRoot 'dist\linux-payload.tar.gz'
-& tar -czf $taskArchive -C $taskPayload duet-clipboard duet-clipboard.svg LICENSE NOTICE.md THIRD_PARTY_NOTICES.txt RUST-STDLIB-NOTICES.html
+& tar -czf $taskArchive -C $taskPayload duet-clipboard duet-clipboard.svg duet-clipboard.png duet-clipboard.desktop LICENSE NOTICE.md THIRD_PARTY_NOTICES.txt RUST-STDLIB-NOTICES.html
 if ($LASTEXITCODE -ne 0) { throw 'Could not create the Linux payload archive.' }
 $taskScript = [System.IO.File]::ReadAllText((Join-Path $taskRoot 'packaging\linux-installer.sh')).Replace("`r`n", "`n")
 if (!$taskScript.EndsWith("`n")) { $taskScript += "`n" }

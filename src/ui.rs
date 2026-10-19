@@ -43,6 +43,7 @@ pub struct App {
     handle: Handle,
     tab: Tab,
     _tray: Option<TrayIcon>,
+    can_hide: bool,
     textures: HashMap<Uuid, egui::TextureHandle>,
     address: String,
     limit: f64,
@@ -110,6 +111,7 @@ impl App {
                 Tab::Clipboard
             },
             _tray: tray,
+            can_hide: crate::window::can_hide(cc),
             textures: HashMap::new(),
             address: String::new(),
             limit,
@@ -133,7 +135,7 @@ impl App {
             ui.label(RichText::new("Ready when you copy").size(25.0));
             ui.label(
                 RichText::new(
-                    "Pair your computers in Devices, then copy text, an image, or a file as usual.",
+                    "Pair your computers in Devices, then copy text, an image, a file, or a folder as usual.",
                 )
                 .color(MUTED),
             );
@@ -171,13 +173,13 @@ impl App {
                     match item.status {
                         Status::AwaitingApproval => {
                             ui.label("Receive this copy into your clipboard?");
-                            if item.offer.parts.len() > 1 {
-                                for part in item.offer.parts.iter().take(5) {
+                            if item.offer.clipboard_parts().count() > 1 {
+                                for part in item.offer.clipboard_parts().take(5) {
                                     ui.label(
                                         RichText::new(format!(
                                             "{}  ·  {}",
                                             part.name,
-                                            format_bytes(part.size)
+                                            format_bytes(item.offer.part_size(part))
                                         ))
                                         .small()
                                         .color(MUTED),
@@ -265,12 +267,12 @@ impl App {
                                 }
                             }
                             if item.offer.kind == Kind::Files {
-                                for part in item.offer.parts.iter().take(8) {
+                                for part in item.offer.clipboard_parts().take(8) {
                                     ui.horizontal(|ui| {
                                         file_icon(ui);
                                         ui.label(&part.name);
                                         ui.label(
-                                            RichText::new(format_bytes(part.size))
+                                            RichText::new(format_bytes(item.offer.part_size(part)))
                                                 .small()
                                                 .color(MUTED),
                                         );
@@ -502,6 +504,7 @@ impl eframe::App for App {
         if ctx.input(|i| i.viewport().close_requested())
             && !self.quitting.load(Ordering::Relaxed)
             && self._tray.is_some()
+            && self.can_hide
         {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
             ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));

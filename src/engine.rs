@@ -1185,7 +1185,7 @@ impl Engine {
                             "Download interrupted. Reconnect to the source and retry.".into(),
                         );
                     }
-                    if !item.paths.is_empty() && item.paths.iter().any(|path| !path.is_file()) {
+                    if !item.paths.is_empty() && item.paths.iter().any(|path| !path.exists()) {
                         continue;
                     }
                     if item.peer == self.config.id() && !item.paths.is_empty() {
@@ -1222,7 +1222,14 @@ async fn send_transfer(
     tx: PeerTx,
     cancelled: Arc<AtomicBool>,
 ) -> Result<()> {
-    for (index, path) in item.paths.iter().enumerate() {
+    for (index, path) in item.part_paths()?.iter().enumerate() {
+        if item.offer.parts[index].is_directory() {
+            ensure!(
+                path.is_dir(),
+                "Source folder is no longer available; copy it again"
+            );
+            continue;
+        }
         let mut file = tokio::fs::File::open(path)
             .await
             .context("Source file is no longer available; copy it again")?;
