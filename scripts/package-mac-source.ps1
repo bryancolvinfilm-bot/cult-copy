@@ -10,7 +10,7 @@ $taskOutput = Join-Path $taskDist ('CultCopy-' + $taskVersion + '-mac-build-sour
 $taskFiles = @(
     'Cargo.toml', 'Cargo.lock', 'build.rs', 'LICENSE', 'NOTICE.md', 'README.md', 'CONTRIBUTING.md',
     'publish.md', 'AGENTS.md', 'THIRD_PARTY_NOTICES.txt', 'rustfmt.toml', '.gitignore', '.gitattributes'
-) | ForEach-Object { Get-Item -LiteralPath (Join-Path $taskRoot $_) }
+) | ForEach-Object { Get-Item -LiteralPath (Join-Path $taskRoot $_) -Force }
 foreach ($taskDirectory in @('src', 'tests', 'scripts', 'docs', 'packaging', '.cargo', '.github')) {
     $taskFiles += Get-ChildItem -LiteralPath (Join-Path $taskRoot $taskDirectory) -File -Recurse -Force
 }
@@ -21,7 +21,8 @@ try {
         $taskRelative = $taskFile.FullName.Substring($taskRoot.Length + 1).Replace('\', '/')
         $taskEntry = [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($taskArchive, $taskFile.FullName, ('CultCopy-mac-build/' + $taskRelative), [IO.Compression.CompressionLevel]::Optimal)
         # Unix regular files: executable shell helpers, read/write source files.
-        $taskEntry.ExternalAttributes = if ($taskFile.Extension -in '.command', '.sh') { -2115174400 } else { -2119958528 }
+        $taskExecutable = $taskFile.Extension -in '.command', '.sh' -or $taskRelative -eq 'packaging/macos-scripts/preinstall'
+        $taskEntry.ExternalAttributes = if ($taskExecutable) { -2115174400 } else { -2119958528 }
     }
     $taskEntry = $taskArchive.CreateEntry('CultCopy-mac-build/START-HERE-MAC.txt')
     $taskWriter = [IO.StreamWriter]::new($taskEntry.Open(), [Text.UTF8Encoding]::new($false))
