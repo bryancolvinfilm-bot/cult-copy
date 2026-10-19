@@ -24,6 +24,7 @@ test "$(sed -n 's/^Icon=//p' /usr/share/applications/duet-clipboard.desktop)" = 
 test "$(sed -n 's/^StartupWMClass=//p' /usr/share/applications/duet-clipboard.desktop)" = duet-clipboard
 cmp packaging/duet-clipboard.svg /usr/share/icons/hicolor/scalable/apps/duet-clipboard.svg
 cmp packaging/icons/icon-256.png /usr/share/icons/hicolor/256x256/apps/duet-clipboard.png
+sh scripts/test-linux-gui.sh
 dnf -y remove duet-clipboard
 test ! -e /usr/bin/duet-clipboard
 test ! -e /usr/share/applications/duet-clipboard.desktop

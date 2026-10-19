@@ -106,7 +106,10 @@ Both architectures build natively on matching GitHub-hosted runners, without
 CPU emulation. RPMs include runtime library dependencies, the desktop entry,
 PNG/SVG icons, and license notices. Each job installs its RPM with DNF, runs the
 installed executable, verifies architecture and package files, validates the
-launcher and icons, then uninstalls it. Any failure blocks publication.
+launcher and icons, renders a diagnostic app window on a private Xvfb display,
+then uninstalls it. The GUI check catches dynamically loaded libraries such as
+`libxkbcommon-x11` that compilation and `--version` cannot validate. Any failure
+blocks publication.
 
 To reproduce a distro build locally on the host architecture:
 

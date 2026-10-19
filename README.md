@@ -160,8 +160,9 @@ runtime. Certificates and Apple notarization are not configured.
 To reproduce a Fedora 44 or Rocky Linux 8 RPM on any Linux host with Podman
 (or Docker), use the isolated distro builder. It copies only build sources,
 installs dependencies in a disposable container, compiles with stable Rust,
-runs the tests and an Xvfb clipboard round trip, and checks RPM installation and
-removal. It builds for the host CPU architecture and writes the RPM to `dist/`:
+runs the tests and an Xvfb clipboard round trip, renders a diagnostic app window,
+and checks RPM installation and removal. It builds for the host CPU architecture
+and writes the RPM to `dist/`:
 
 ```sh
 bash scripts/build-linux-distro.sh fedora

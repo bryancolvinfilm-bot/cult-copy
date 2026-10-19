@@ -36,7 +36,12 @@ ARM64, in addition to the existing eight installers. Each RPM is compiled in
 its distro container on a matching native runner. Distro jobs run the Rust
 checks and native X11 clipboard test, then use DNF to verify dependency
 resolution, installation, executable version/architecture, launcher/icons,
-package integrity, and removal. Rocky builds use glibc 2.28. The local release
+package integrity, an actual diagnostic window rendered on Xvfb, and removal.
+A clean Fedora GUI launch caught the missing dynamically loaded
+`libxkbcommon-x11` dependency; the RPM now requires it explicitly. Rocky builds
+use glibc 2.28. The corrected Fedora 44 x64 RPM passed local installation,
+automatic dependency resolution, a rendered window, launcher/icon checks, and
+uninstallation in its disposable container. The local release
 verifier passed with twelve packages and rejected modified bytes, a wrong
 source SHA, and every missing package. See the workflow linked by each release's
 `BUILD-INFO.json` for the actual native build results.
