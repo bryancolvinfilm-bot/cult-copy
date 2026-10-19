@@ -9,11 +9,11 @@ fi
 task_root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$task_root"
 cargo build --locked --features ui-test
-task_tmp=$(mktemp -d "${TMPDIR:-/tmp}/duet-gui.XXXXXXXX")
+task_tmp=$(mktemp -d "${TMPDIR:-/tmp}/cult-copy-gui.XXXXXXXX")
 trap 'rm -rf -- "$task_tmp"' EXIT HUP INT TERM
-# DUET_SCREENSHOT_TO also disables LAN discovery for this isolated test profile.
+# CULT_COPY_SCREENSHOT_TO also disables LAN discovery for this isolated test profile.
 timeout 45s dbus-run-session -- xvfb-run -a env LIBGL_ALWAYS_SOFTWARE=1 \
-    DUET_SCREENSHOT_TO="$task_tmp/window.png" \
+    CULT_COPY_SCREENSHOT_TO="$task_tmp/window.png" \
     "${CARGO_TARGET_DIR:-target}/debug/duet-clipboard" --data-dir "$task_tmp/profile"
 test -s "$task_tmp/window.png"
 printf '%s\n' 'Linux window rendered and exited on the private X11 display.'

@@ -19,21 +19,21 @@ mkdir -p dist
 tar -cf - Cargo.toml Cargo.lock build.rs src tests packaging scripts \
     LICENSE NOTICE.md THIRD_PARTY_NOTICES.txt |
     "$task_engine" run --rm -i --security-opt label=disable \
-        -v "$task_root/dist:/output" -e DUET_DISTRO="$task_distro" "$task_image" \
+        -v "$task_root/dist:/output" -e CULT_COPY_DISTRO="$task_distro" "$task_image" \
         bash -euc '
             mkdir -p /build
             tar -xf - -C /build
             cd /build
-            sh scripts/linux-distro-deps.sh "$DUET_DISTRO"
-            curl --proto "=https" --tlsv1.2 -fLsS https://sh.rustup.rs -o /tmp/duet-rustup.sh
-            sh /tmp/duet-rustup.sh -y --profile minimal --default-toolchain stable
+            sh scripts/linux-distro-deps.sh "$CULT_COPY_DISTRO"
+            curl --proto "=https" --tlsv1.2 -fLsS https://sh.rustup.rs -o /tmp/cult-copy-rustup.sh
+            sh /tmp/cult-copy-rustup.sh -y --profile minimal --default-toolchain stable
             . "$HOME/.cargo/env"
             rustup component add rustfmt clippy
             cargo fmt --all -- --check
             cargo clippy --locked --all-targets --all-features -- -D warnings
             cargo test --locked --all-targets
             dbus-run-session -- xvfb-run -a cargo test --locked --test native_clipboard -- --ignored --test-threads=1
-            sh scripts/package-rpm.sh "$DUET_DISTRO"
-            sh scripts/test-linux-rpm.sh "$DUET_DISTRO"
+            sh scripts/package-rpm.sh "$CULT_COPY_DISTRO"
+            sh scripts/test-linux-rpm.sh "$CULT_COPY_DISTRO"
             cp dist/*.rpm /output/
         '

@@ -1,4 +1,4 @@
-DUET CLIPBOARD - THIRD-PARTY NOTICES
+CULT COPY - THIRD-PARTY NOTICES
 Dependency license texts from the locked source packages, including platform-specific build dependencies.
 
 ab_glyph 0.2.32 | Apache-2.0

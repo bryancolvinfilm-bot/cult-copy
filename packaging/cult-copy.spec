@@ -1,12 +1,13 @@
 %global debug_package %{nil}
 %global _build_id_links none
 
+# Stable installed package identity: DNF upgrades the existing app in place.
 Name:           duet-clipboard
 Version:        %{app_version}
 Release:        1%{?dist}
 Summary:        Private clipboard sharing between paired computers
 License:        MIT
-URL:            https://github.com/bryancolvinfilm-bot/duet-clipboard
+URL:            https://github.com/bryancolvinfilm-bot/cult-copy
 Source0:        %{name}-%{version}.tar.gz
 BuildRequires:  desktop-file-utils
 Requires:       hicolor-icon-theme

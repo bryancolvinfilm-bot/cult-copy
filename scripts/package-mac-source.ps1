@@ -6,7 +6,7 @@ $taskRoot = Split-Path -Parent $PSScriptRoot
 $taskVersion = Get-AppVersion -Root $taskRoot
 $taskDist = Join-Path $taskRoot 'dist'
 New-Item -ItemType Directory -Path $taskDist -Force | Out-Null
-$taskOutput = Join-Path $taskDist ('DuetClipboard-' + $taskVersion + '-mac-build-source.zip')
+$taskOutput = Join-Path $taskDist ('CultCopy-' + $taskVersion + '-mac-build-source.zip')
 $taskFiles = @(
     'Cargo.toml', 'Cargo.lock', 'build.rs', 'LICENSE', 'NOTICE.md', 'README.md', 'CONTRIBUTING.md',
     'publish.md', 'AGENTS.md', 'THIRD_PARTY_NOTICES.txt', 'rustfmt.toml', '.gitignore', '.gitattributes'
@@ -19,11 +19,11 @@ $taskArchive = [IO.Compression.ZipFile]::Open($taskOutput, [IO.Compression.ZipAr
 try {
     foreach ($taskFile in ($taskFiles | Sort-Object FullName -Unique)) {
         $taskRelative = $taskFile.FullName.Substring($taskRoot.Length + 1).Replace('\', '/')
-        $taskEntry = [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($taskArchive, $taskFile.FullName, ('DuetClipboard-mac-build/' + $taskRelative), [IO.Compression.CompressionLevel]::Optimal)
+        $taskEntry = [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($taskArchive, $taskFile.FullName, ('CultCopy-mac-build/' + $taskRelative), [IO.Compression.CompressionLevel]::Optimal)
         # Unix regular files: executable shell helpers, read/write source files.
         $taskEntry.ExternalAttributes = if ($taskFile.Extension -in '.command', '.sh') { -2115174400 } else { -2119958528 }
     }
-    $taskEntry = $taskArchive.CreateEntry('DuetClipboard-mac-build/START-HERE-MAC.txt')
+    $taskEntry = $taskArchive.CreateEntry('CultCopy-mac-build/START-HERE-MAC.txt')
     $taskWriter = [IO.StreamWriter]::new($taskEntry.Open(), [Text.UTF8Encoding]::new($false))
     try {
         $taskWriter.WriteLine('This is the Mac source/build kit, not an already-built installer.')

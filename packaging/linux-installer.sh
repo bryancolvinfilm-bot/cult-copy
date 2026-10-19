@@ -3,9 +3,9 @@ set -eu
 task_destination="${XDG_DATA_HOME:-$HOME/.local/share}/duet-clipboard"
 task_apps="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
 task_icon_theme="${XDG_DATA_HOME:-$HOME/.local/share}/icons/hicolor"
-task_tmp=$(mktemp -d "${TMPDIR:-/tmp}/duet-clipboard.XXXXXXXX")
+task_tmp=$(mktemp -d "${TMPDIR:-/tmp}/cult-copy.XXXXXXXX")
 trap 'rm -rf -- "$task_tmp"' EXIT HUP INT TERM
-task_payload=$(awk '/^__DUET_CLIPBOARD_PAYLOAD__$/ { print NR + 1; exit }' "$0")
+task_payload=$(awk '/^__CULT_COPY_CLIPBOARD_PAYLOAD__$/ { print NR + 1; exit }' "$0")
 tail -n "+$task_payload" "$0" | tar -xz -C "$task_tmp"
 mkdir -p "$task_destination" "$task_apps" "$task_icon_theme/scalable/apps" "$task_icon_theme/256x256/apps"
 install -m 755 "$task_tmp/duet-clipboard" "$task_destination/duet-clipboard"
@@ -29,6 +29,6 @@ fi
 if command -v update-desktop-database >/dev/null 2>&1; then
     update-desktop-database "$task_apps" >/dev/null 2>&1 || true
 fi
-printf '%s\n' 'Installed Duet Clipboard for your user.' 'Open Duet Clipboard from your applications menu, then pair your computers.'
+printf '%s\n' 'Installed Cult Copy for your user.' 'Open Cult Copy from your applications menu, then pair your computers.'
 exit 0
-__DUET_CLIPBOARD_PAYLOAD__
+__CULT_COPY_CLIPBOARD_PAYLOAD__

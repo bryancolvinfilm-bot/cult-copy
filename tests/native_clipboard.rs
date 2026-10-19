@@ -1,6 +1,6 @@
 //! These tests change the actual desktop clipboard. Run only on a disposable
 //! desktop/session, such as the native CI runners: cargo test --test native_clipboard -- --ignored
-use duet_clipboard::{
+use cult_copy::{
     clipboard::{Captured, SystemClipboard},
     model::{Kind, TextPayload},
 };
@@ -20,7 +20,7 @@ fn native_text_image_file_and_folder_clipboards_round_trip() {
                 ClipboardContent::Text("Apple remote clipboard placeholder".into()),
                 ClipboardContent::Other("com.apple.is-remote-clipboard".into(), vec![]),
                 ClipboardContent::Other(
-                    duet_clipboard::clipboard::MARKER.into(),
+                    cult_copy::clipboard::MARKER.into(),
                     uuid::Uuid::new_v4().as_bytes().to_vec(),
                 ),
             ])

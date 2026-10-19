@@ -220,8 +220,8 @@ pub fn start(config: Config, dir: PathBuf, runtime: &tokio::runtime::Runtime) ->
     runtime.spawn(engine.run(rx));
     let network_bus = bus.clone();
     #[cfg(feature = "ui-test")]
-    let diagnostics = std::env::var_os("DUET_LIFECYCLE_TEST_TO").is_some()
-        || std::env::var_os("DUET_SCREENSHOT_TO").is_some();
+    let diagnostics = std::env::var_os("CULT_COPY_LIFECYCLE_TEST_TO").is_some()
+        || std::env::var_os("CULT_COPY_SCREENSHOT_TO").is_some();
     #[cfg(not(feature = "ui-test"))]
     let diagnostics = false;
     runtime.spawn(async move {

@@ -13,7 +13,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Could not read the locked dependency metadata.' }
     $taskMetadata = ($taskMetadataText -join "`n") | ConvertFrom-Json
     $taskText = [System.Text.StringBuilder]::new()
-    [void]$taskText.AppendLine('DUET CLIPBOARD - THIRD-PARTY NOTICES')
+    [void]$taskText.AppendLine('CULT COPY - THIRD-PARTY NOTICES')
     [void]$taskText.AppendLine('Dependency license texts from the locked source packages, including platform-specific build dependencies.')
     $taskLicenses = [ordered]@{}
     foreach ($taskPackage in ($taskMetadata.packages | Where-Object { $_.source } | Sort-Object name,version)) {

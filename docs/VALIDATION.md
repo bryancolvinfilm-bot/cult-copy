@@ -1,5 +1,54 @@
 # Validation
 
+## Version 0.1.6: Cult Copy and existing-install upgrades
+
+The Cargo project, application title, tray tooltip, notifications, installers,
+artwork filenames, release filenames, and repository links use Cult Copy. The
+original icon bytes are preserved. Internal profile, installer, notification,
+startup, Linux launcher/package, and wire-protocol identities remain stable.
+
+`tests/upgrade_identity.rs` checks the previous profile location, loads existing
+device keys and trusted peers without replacing them, verifies installer and
+discovery identities, and runs the legacy executable's new version label.
+Windows CI upgrades the actual v0.1.5 installer and checks the reused install
+directory, single uninstall registration, and renamed shortcut. Mac CI installs
+the PKG over a simulated legacy bundle and checks the new name, preserved ID,
+removed legacy bundle content, and valid signature. Mac users upgrading from the
+old name should use the PKG; a DMG drag alone cannot replace a differently named
+app directory. Enabled startup entries refresh when the upgraded app starts.
+
+Local checks passed: 35 automated tests, strict all-feature Clippy, formatting,
+shell and PowerShell parsing, workflow/plist validation, and release asset
+verification including the old/new filename prefixes. A disposable Fedora 44
+desktop passed X11 and native Wayland lifecycle checks for normal/background
+startup, plus native text/image/file/folder clipboard round trips. The per-user
+Linux installer replaced a legacy launcher/executable in an isolated directory
+with spaces. Renamed ICO/ICNS assets are byte-for-byte identical to v0.1.5.
+
+## Version 0.1.6 Linux close-to-tray lifecycle
+
+Linux now owns its tray, clipboard engine, and notification dispatcher outside
+the optional eframe window. Close releases only the native surface, including
+on Wayland, and Open creates another window using eframe's reusable event loop.
+Background startup creates no window. Only the tray's Quit action ends the
+resident app. The tray menu also includes a disabled label with the package
+version; the separate Settings Quit button has been removed.
+
+`scripts/test-linux-lifecycle.sh` runs normal and background startup in private
+Xvfb and headless Weston sessions. It checks the actual window backend, a rendered
+frame after every reopen, three cycles of close/tray Open and authenticated
+instance activation, continued engine and tray updates while hidden, the
+disabled version label, and process exit after the tray Quit handler. Its
+temporary profiles and display servers avoid the working desktop's clipboard.
+Ubuntu and Fedora CI check both backends; Rocky 8 checks X11 because its
+configured build repositories do not provide the Weston test compositor.
+
+Local checks passed: all 32 automated tests, all-target/all-feature Clippy,
+formatting, shell syntax, and workflow parsing. The lifecycle check passed for
+both normal and background startup on actual X11 and native Wayland windows in
+a disposable Fedora 44 container. Physical GNOME tray and titlebar interaction
+remains a desktop check.
+
 ## Version 0.1.5 Linux integration, folders, and distro builds
 
 The Linux window now uses the `duet-clipboard` app ID, matching the launcher
@@ -48,8 +97,8 @@ source SHA, and every missing package. See the workflow linked by each release's
 
 ## Version 0.1.4 Mac clipboard coexistence
 
-Duet now skips Apple's remote-clipboard announcements before reading any values,
-without invalidating a pending Duet transfer or local copy. Mac text, rich text,
+Cult Copy now skips Apple's remote-clipboard announcements before reading any values,
+without invalidating a pending Cult Copy transfer or local copy. Mac text, rich text,
 images, and file selections are published with AppKit's `currentHostOnly` option.
 The Mac setup UI reads Handoff preferences without changing them, reports unknown
 values explicitly, refreshes on focus, and links to the appropriate settings pane.
@@ -149,7 +198,7 @@ device/notice failures), all-feature Clippy passes, formatting passes, and the
 release verifier rejects tampering and missing packages for every architecture.
 Native clipboard-writing tests remain reserved for CI desktops.
 
-The [native check run for 037a965](https://github.com/bryancolvinfilm-bot/duet-clipboard/actions/runs/38994697797)
+The [native check run for 037a965](https://github.com/bryancolvinfilm-bot/cult-copy/actions/runs/38994697797)
 passed all five platforms, including Windows ARM64 and Linux ARM64 clipboard
 round trips. Both Linux AppImages launched successfully without FUSE. Mac
 packaging verified both CPU architectures, the app signature, the DMG, and the

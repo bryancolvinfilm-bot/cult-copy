@@ -1,10 +1,11 @@
 [package]
-name = "duet-clipboard"
-version = "0.1.5"
+name = "cult-copy"
+version = "0.1.6"
 edition = "2021"
 rust-version = "1.90"
 description = "A private, peer-to-peer clipboard for your computers"
 license = "MIT"
+# Keep the executable name stable for existing startup entries and installers.
 default-run = "duet-clipboard"
 
 [features]

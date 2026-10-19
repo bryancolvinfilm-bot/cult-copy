@@ -36,7 +36,7 @@ if (!$taskToken) {
     $taskCredentials = $null
 }
 if (!$taskToken) { throw 'No GitHub authentication is available.' }
-$taskHeaders = @{Authorization=('Bearer '+$taskToken);Accept='application/vnd.github+json';'X-GitHub-Api-Version'='2022-11-28';'User-Agent'='DuetClipboard-publisher'}
+$taskHeaders = @{Authorization=('Bearer '+$taskToken);Accept='application/vnd.github+json';'X-GitHub-Api-Version'='2022-11-28';'User-Agent'='CultCopy-publisher'}
 $taskToken = $null
 function Invoke-ProjectApi {
     param([string]$Path, [string]$Method = 'Get', [object]$Body = $null, [switch]$AllowNotFound)

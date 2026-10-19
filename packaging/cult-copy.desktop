@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Name=Duet Clipboard
+Name=Cult Copy
 Comment=Share your clipboard with paired computers on your local network
 Exec=duet-clipboard
 Icon=duet-clipboard

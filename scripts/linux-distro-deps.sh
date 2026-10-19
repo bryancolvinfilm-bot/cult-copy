@@ -8,7 +8,9 @@ fi
 task_distro=${1:?Usage: linux-distro-deps.sh fedora|rocky8}
 . /etc/os-release
 case "$task_distro:$ID:$VERSION_ID" in
-    fedora:fedora:44) ;;
+    fedora:fedora:44)
+        dnf -y install weston
+        ;;
     rocky8:rocky:8.*)
         dnf -y install dnf-plugins-core
         dnf config-manager --set-enabled powertools
@@ -19,4 +21,4 @@ dnf -y install gcc gcc-c++ make pkgconf-pkg-config git curl ca-certificates \
     tar gzip diffutils findutils which rpm-build desktop-file-utils \
     hicolor-icon-theme libX11-devel libXi-devel libXrandr-devel libXcursor-devel \
     libXinerama-devel mesa-libEGL-devel mesa-libGL-devel mesa-dri-drivers wayland-devel \
-    libxkbcommon-devel xorg-x11-server-Xvfb xorg-x11-xauth dbus-daemon
+    libxkbcommon-devel xorg-x11-server-Xvfb xorg-x11-xauth dbus-daemon python3

@@ -3,7 +3,7 @@ param(
     [Parameter(Mandatory=$true)][string]$Directory,
     [Parameter(Mandatory=$true)][ValidatePattern('^[0-9]+\.[0-9]+\.[0-9]+$')][string]$Version,
     [Parameter(Mandatory=$true)][ValidatePattern('^[a-f0-9]{40}$')][string]$SourceSha,
-    [string]$Repository = 'bryancolvinfilm-bot/duet-clipboard',
+    [string]$Repository = 'bryancolvinfilm-bot/cult-copy',
     [string]$RunUrl = ''
 )
 $ErrorActionPreference = 'Stop'

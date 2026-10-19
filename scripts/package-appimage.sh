@@ -22,10 +22,11 @@ curl --proto '=https' --tlsv1.2 -fLsS --retry 3 "https://github.com/AppImage/app
 curl --proto '=https' --tlsv1.2 -fLsS --retry 3 "https://github.com/AppImage/type2-runtime/releases/download/20251108/runtime-$task_machine" -o "$task_runtime"
 printf '%s  %s\n%s  %s\n' "$task_tool_sha" "$task_tool" "$task_runtime_sha" "$task_runtime" | sha256sum -c -
 chmod +x "$task_tool"
-task_appdir="$task_root/dist/DuetClipboard-$task_arch.AppDir"
+task_appdir="$task_root/dist/CultCopy-$task_arch.AppDir"
 mkdir -p "$task_appdir/usr/bin" "$task_appdir/usr/share/icons/hicolor/256x256/apps" "$task_appdir/usr/share/doc/duet-clipboard"
 cp target/release/duet-clipboard "$task_appdir/usr/bin/"
-cp packaging/AppRun packaging/duet-clipboard.desktop "$task_appdir/"
+cp packaging/AppRun "$task_appdir/"
+cp packaging/cult-copy.desktop "$task_appdir/duet-clipboard.desktop"
 cp packaging/icons/icon-256.png "$task_appdir/duet-clipboard.png"
 cp packaging/icons/icon-256.png "$task_appdir/.DirIcon"
 cp packaging/icons/icon-256.png "$task_appdir/usr/share/icons/hicolor/256x256/apps/duet-clipboard.png"
@@ -34,4 +35,4 @@ cp packaging/APPIMAGE-RUNTIME-LICENSE.txt "$task_appdir/usr/share/doc/duet-clipb
 chmod +x "$task_appdir/AppRun" "$task_appdir/usr/bin/duet-clipboard"
 # No FUSE dependency on build runners. The result supports normal FUSE mounting
 # and --appimage-extract-and-run on desktops without FUSE.
-ARCH="$task_machine" VERSION="$task_version" APPIMAGE_EXTRACT_AND_RUN=1 "$task_tool" --runtime-file "$task_runtime" "$task_appdir" "dist/DuetClipboard-$task_version-linux-$task_arch.AppImage"
+ARCH="$task_machine" VERSION="$task_version" APPIMAGE_EXTRACT_AND_RUN=1 "$task_tool" --runtime-file "$task_runtime" "$task_appdir" "dist/CultCopy-$task_version-linux-$task_arch.AppImage"

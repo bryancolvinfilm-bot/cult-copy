@@ -738,6 +738,41 @@ dependencies = [
 ]
 
 [[package]]
+name = "cult-copy"
+version = "0.1.6"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "blake3",
+ "clipboard-rs",
+ "directories",
+ "eframe",
+ "embed-resource",
+ "fs2",
+ "hex",
+ "hostname",
+ "image",
+ "mdns-sd",
+ "notify-rust",
+ "objc2 0.6.5",
+ "objc2-app-kit 0.3.2",
+ "objc2-core-foundation",
+ "objc2-foundation 0.3.2",
+ "raw-window-handle",
+ "serde",
+ "serde_json",
+ "snow",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "tray-icon",
+ "url",
+ "uuid",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
 name = "cursor-icon"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -862,41 +897,6 @@ name = "dpi"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d8b14ccef22fc6f5a8f4d7d768562a182c04ce9a3b3157b91390b52ddfdf1a76"
-
-[[package]]
-name = "duet-clipboard"
-version = "0.1.5"
-dependencies = [
- "anyhow",
- "bincode",
- "blake3",
- "clipboard-rs",
- "directories",
- "eframe",
- "embed-resource",
- "fs2",
- "hex",
- "hostname",
- "image",
- "mdns-sd",
- "notify-rust",
- "objc2 0.6.5",
- "objc2-app-kit 0.3.2",
- "objc2-core-foundation",
- "objc2-foundation 0.3.2",
- "raw-window-handle",
- "serde",
- "serde_json",
- "snow",
- "tempfile",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "tray-icon",
- "url",
- "uuid",
- "windows-sys 0.61.2",
-]
 
 [[package]]
 name = "ecolor"

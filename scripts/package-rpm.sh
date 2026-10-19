@@ -18,18 +18,20 @@ case "$(uname -m)" in
 esac
 test "$(rustc -vV | sed -n 's/^host: //p')" = "$task_target"
 cargo build --release --locked
-task_rpmroot=$(mktemp -d "${TMPDIR:-/tmp}/duet-rpm.XXXXXXXX")
+task_rpmroot=$(mktemp -d "${TMPDIR:-/tmp}/cult-copy-rpm.XXXXXXXX")
 trap 'rm -rf -- "$task_rpmroot"' EXIT HUP INT TERM
 task_payload="$task_rpmroot/duet-clipboard-$task_version"
 mkdir -p "$task_payload" "$task_rpmroot/SOURCES" "$task_rpmroot/RPMS"
 cp "${CARGO_TARGET_DIR:-target}/release/duet-clipboard" "$task_payload/"
-cp packaging/duet-clipboard.desktop packaging/duet-clipboard.svg LICENSE NOTICE.md \
+cp LICENSE NOTICE.md \
     THIRD_PARTY_NOTICES.txt packaging/RUST-STDLIB-NOTICES.html "$task_payload/"
+cp packaging/cult-copy.desktop "$task_payload/duet-clipboard.desktop"
+cp packaging/cult-copy.svg "$task_payload/duet-clipboard.svg"
 cp packaging/icons/icon-256.png "$task_payload/duet-clipboard.png"
 tar -czf "$task_rpmroot/SOURCES/duet-clipboard-$task_version.tar.gz" \
     -C "$task_rpmroot" "duet-clipboard-$task_version"
-task_name="DuetClipboard-$task_version-$task_distro-$task_arch.rpm"
-rpmbuild -bb packaging/duet-clipboard.spec \
+task_name="CultCopy-$task_version-$task_distro-$task_arch.rpm"
+rpmbuild -bb packaging/cult-copy.spec \
     --define "_topdir $task_rpmroot" --define "app_version $task_version" \
     --define "dist $task_dist" --define "_rpmfilename $task_name"
 mkdir -p dist

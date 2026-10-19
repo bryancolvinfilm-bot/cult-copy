@@ -144,7 +144,7 @@ impl ClipboardAccess for TestClipboard {
 }
 
 #[tokio::test]
-async fn ignored_apple_announcements_do_not_invalidate_a_duet_transfer_or_local_copy() {
+async fn ignored_apple_announcements_do_not_invalidate_a_cult_copy_transfer_or_local_copy() {
     let dir = tempfile::tempdir().unwrap();
     let config = Config::load(dir.path()).unwrap();
     let (mut engine, handle, _receiver) = create_engine(config, dir.path().to_owned());
@@ -164,7 +164,7 @@ async fn ignored_apple_announcements_do_not_invalidate_a_duet_transfer_or_local_
     engine.command(Command::ClipboardChanged).unwrap();
     assert_eq!(
         engine.revision, 7,
-        "A pending Duet transfer must remain current"
+        "A pending Cult Copy transfer must remain current"
     );
     assert_eq!(engine.last_signature.as_deref(), Some("last local copy"));
     assert_eq!(engine.config.clock, clock);

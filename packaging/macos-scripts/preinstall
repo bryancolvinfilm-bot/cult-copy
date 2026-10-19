@@ -1,0 +1,14 @@
+#!/bin/sh
+# Preserve the old app as the new bundle's upgrade target. Never touch profiles
+# or a different application's bundle. Installer replaces this bundle in place.
+set -eu
+task_volume=${3:-/}
+task_apps="${task_volume%/}/Applications"
+task_old="$task_apps/Duet Clipboard.app"
+task_new="$task_apps/Cult Copy.app"
+if [ -d "$task_old" ] && [ ! -e "$task_new" ]; then
+    task_id=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$task_old/Contents/Info.plist" 2>/dev/null || true)
+    if [ "$task_id" = io.duetclipboard.app ]; then
+        mv "$task_old" "$task_new"
+    fi
+fi

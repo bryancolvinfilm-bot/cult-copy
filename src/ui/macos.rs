@@ -18,7 +18,7 @@ pub(super) struct MacClipboardSetup {
 
 impl MacClipboardSetup {
     fn enabled(&self) -> bool {
-        cfg!(target_os = "macos") || std::env::var_os("DUET_PREVIEW_MAC_HANDOFF").is_some()
+        cfg!(target_os = "macos") || std::env::var_os("CULT_COPY_PREVIEW_MAC_HANDOFF").is_some()
     }
 
     pub(super) fn update(&mut self, ctx: &egui::Context) {
@@ -69,7 +69,7 @@ impl MacClipboardSetup {
                 #[cfg(target_os = "macos")]
                 let status = crate::handoff::status();
                 #[cfg(not(target_os = "macos"))]
-                let status = match std::env::var("DUET_PREVIEW_MAC_HANDOFF").as_deref() {
+                let status = match std::env::var("CULT_COPY_PREVIEW_MAC_HANDOFF").as_deref() {
                     Ok("on") => HandoffStatus::On,
                     Ok("off") => HandoffStatus::Off,
                     _ => HandoffStatus::Unknown,
@@ -108,9 +108,9 @@ impl MacClipboardSetup {
             .show(ui, |ui| {
                 ui.label(RichText::new("Mac-to-Mac clipboard sharing").strong());
                 ui.label(if self.status == Some(HandoffStatus::On) {
-                    "Apple's Handoff appears on and may compete with Duet. Turn it off on each Mac using Duet."
+                    "Apple's Handoff appears on and may compete with Cult Copy. Turn it off on each Mac using Cult Copy."
                 } else {
-                    "To prevent Apple's clipboard sharing from competing with Duet, check that Handoff is off on each Mac."
+                    "To prevent Apple's clipboard sharing from competing with Cult Copy, check that Handoff is off on each Mac."
                 });
                 self.open_button(ui);
                 ui.label(RichText::new("Turn off \"Allow Handoff between this Mac and your iCloud devices.\" This also turns off handing off activities between devices.").small().color(MUTED));
@@ -128,7 +128,7 @@ impl MacClipboardSetup {
         ui.label(RichText::new("Mac clipboard setup").size(22.0).strong());
         let (label, color) = match self.status {
             Some(HandoffStatus::On) => (
-                "Handoff appears on · Apple clipboard sharing may compete with Duet",
+                "Handoff appears on · Apple clipboard sharing may compete with Cult Copy",
                 egui::Color32::from_rgb(255, 204, 170),
             ),
             Some(HandoffStatus::Off) => ("Handoff appears off on this Mac", ACCENT),
@@ -136,7 +136,7 @@ impl MacClipboardSetup {
             None => ("Checking Handoff…", MUTED),
         };
         ui.label(RichText::new(label).color(color));
-        ui.label("Let Duet handle clipboard sharing by turning off \"Allow Handoff between this Mac and your iCloud devices\" on every Mac using Duet.");
+        ui.label("Let Cult Copy handle clipboard sharing by turning off \"Allow Handoff between this Mac and your iCloud devices\" on every Mac using Cult Copy.");
         ui.horizontal_wrapped(|ui| {
             self.open_button(ui);
             if ui
@@ -147,7 +147,7 @@ impl MacClipboardSetup {
             }
         });
         manual_route(ui);
-        ui.label(RichText::new("Turning Handoff off also disables handing off activities such as Safari pages. Duet doesn't change this switch. The status check is best effort; verify the switch in System Settings. It refreshes when you return here.").small().color(MUTED));
+        ui.label(RichText::new("Turning Handoff off also disables handing off activities such as Safari pages. Cult Copy doesn't change this switch. The status check is best effort; verify the switch in System Settings. It refreshes when you return here.").small().color(MUTED));
         ui.add_space(12.0);
         ui.separator();
         ui.add_space(12.0);

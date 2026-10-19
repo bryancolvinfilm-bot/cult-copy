@@ -1,4 +1,4 @@
-# Publish Duet Clipboard
+# Publish Cult Copy
 
 The owner can ask an agent:
 
@@ -9,9 +9,15 @@ checks, dispatches native Windows/macOS/Linux builds, and publishes verified
 installers on GitHub Releases. The cloud build job is the "render job" in this
 process; a local Windows machine does not need a Mac toolchain.
 
-Repository: <https://github.com/bryancolvinfilm-bot/duet-clipboard>
+Repository: <https://github.com/bryancolvinfilm-bot/cult-copy>
 
-Public downloads: <https://github.com/bryancolvinfilm-bot/duet-clipboard/releases/latest>
+Public downloads: <https://github.com/bryancolvinfilm-bot/cult-copy/releases/latest>
+
+Cult Copy is the display/project name from v0.1.6 onward. Keep the compatibility
+identifiers described in README's upgrade section. Installer/download filenames
+use `CultCopy-`; old release assets retain their published names. Mac upgrades
+from the original app name use the PKG's bundle migration. The DMG is suitable
+for new installs and subsequent Cult Copy upgrades.
 
 ## Agent procedure
 
@@ -77,7 +83,7 @@ separate desktop and RPM matrices from the release-target manifest. Five desktop
 jobs and four distro-container jobs run formatting, all-feature Clippy,
 unit/integration tests, and native clipboard round trips. They build:
 
-| Platform | Public assets (after `DuetClipboard-<version>-`) |
+| Platform | Public assets (after `CultCopy-<version>-`) |
 | --- | --- |
 | Windows x64 | `windows-x64-setup.exe` |
 | Windows ARM64 | `windows-arm64-setup.exe` |
@@ -107,9 +113,12 @@ CPU emulation. RPMs include runtime library dependencies, the desktop entry,
 PNG/SVG icons, and license notices. Each job installs its RPM with DNF, runs the
 installed executable, verifies architecture and package files, validates the
 launcher and icons, renders a diagnostic app window on a private Xvfb display,
-then uninstalls it. The GUI check catches dynamically loaded libraries such as
-`libxkbcommon-x11` that compilation and `--version` cannot validate. Any failure
-blocks publication.
+and exercises close/reopen, background startup, instance activation, hidden
+updates, the version label, and tray Quit before uninstalling it. Ubuntu and
+Fedora jobs check both X11 and headless Wayland. Rocky 8 checks X11; its build
+repositories do not provide Weston. The GUI check catches dynamically loaded
+libraries such as `libxkbcommon-x11` that compilation and `--version` cannot
+validate. Any failure blocks publication.
 
 To reproduce a distro build locally on the host architecture:
 
@@ -135,7 +144,7 @@ It checks `main` has not changed, creates immutable tag `v<version>` pointing
 to the tested commit, and uploads the fourteen assets to a **draft** release. It
 downloads the uploaded assets and checks their hashes before making the release
 public and marking it latest. A failure leaves no partially published release.
-The release notes retain the independent-project / no-Duet-Display-affiliation
+The release notes retain the independent-project / no-Cult Copy-Display-affiliation
 notice and explain that the Windows/package builds are unsigned and the Mac app
 is ad-hoc signed rather than notarized.
 

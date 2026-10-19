@@ -1,37 +1,36 @@
 //! Dispatch window requests outside native tray callbacks. On Windows, hidden
 //! windows do not receive the WM_PAINT that eframe needs to apply viewport
 //! commands. Explicitly posting it also keeps the hidden tray indicator current.
+#[cfg(not(target_os = "linux"))]
 use eframe::egui::{self, ViewportCommand, ViewportId};
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    mpsc, Arc,
-};
+#[cfg(not(target_os = "linux"))]
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{mpsc, Arc};
 
-pub fn can_hide(cc: &eframe::CreationContext<'_>) -> bool {
-    use raw_window_handle::HasWindowHandle;
-    // Winit cannot hide a native Wayland window. Allow close to quit there
-    // instead of cancelling it and leaving an unresponsive close button.
-    cc.window_handle()
-        .is_ok_and(|handle| supports_hiding(handle.as_raw()))
-}
+#[cfg(target_os = "linux")]
+mod linux;
+#[cfg(target_os = "linux")]
+pub use linux::run as run_linux;
 
-fn supports_hiding(handle: raw_window_handle::RawWindowHandle) -> bool {
-    !matches!(handle, raw_window_handle::RawWindowHandle::Wayland(_))
-}
-
+#[derive(Clone, Copy)]
 enum Action {
     Refresh(bool),
     Open,
     Quit,
     Stop,
+    #[cfg(all(target_os = "linux", feature = "ui-test"))]
+    CloseWindow,
 }
 
 #[derive(Clone)]
 pub struct WindowControl {
     sender: mpsc::Sender<Action>,
+    #[cfg(target_os = "linux")]
+    state: Arc<std::sync::Mutex<linux::State>>,
 }
 
 impl WindowControl {
+    #[cfg(not(target_os = "linux"))]
     pub fn new(
         cc: &eframe::CreationContext<'_>,
         quitting: Arc<AtomicBool>,
@@ -170,7 +169,7 @@ pub fn start_lifecycle_test(
     use windows_sys::Win32::UI::WindowsAndMessaging::{
         IsIconic, IsWindowVisible, ShowWindowAsync, SW_MINIMIZE,
     };
-    let Ok(report) = std::env::var("DUET_LIFECYCLE_TEST_TO") else {
+    let Ok(report) = std::env::var("CULT_COPY_LIFECYCLE_TEST_TO") else {
         return;
     };
     assert!(
@@ -254,21 +253,4 @@ pub fn start_lifecycle_test(
         }
         control.quit();
     });
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use raw_window_handle::{RawWindowHandle, WaylandWindowHandle, XlibWindowHandle};
-
-    #[test]
-    fn native_wayland_must_allow_close_while_x11_can_hide_to_tray() {
-        let wayland = WaylandWindowHandle::new(std::ptr::NonNull::dangling());
-        assert!(!supports_hiding(RawWindowHandle::Wayland(wayland)));
-        // Choose by the real window handle, since an X11 window may be running
-        // under XWayland in a session that also has WAYLAND_DISPLAY set.
-        assert!(supports_hiding(RawWindowHandle::Xlib(
-            XlibWindowHandle::new(1)
-        )));
-    }
 }

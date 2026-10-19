@@ -1,6 +1,6 @@
 fn main() {
     println!("cargo:rerun-if-changed=packaging/windows.rc");
-    println!("cargo:rerun-if-changed=packaging/icons/duet-clipboard.ico");
+    println!("cargo:rerun-if-changed=packaging/icons/cult-copy.ico");
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
         embed_resource::compile_for(
             "packaging/windows.rc",

@@ -3,9 +3,11 @@ $taskRoot = Split-Path -Parent $PSScriptRoot
 $taskDirectory = Join-Path $taskRoot ('.tools\release-check-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $taskDirectory -Force | Out-Null
 $taskSha = '1234567890abcdef1234567890abcdef12345678'
-$taskVersion = '0.1.2'
+$taskVersion = '0.1.6'
 . (Join-Path $PSScriptRoot 'release-targets.ps1')
+if (@(Get-ReleaseAssetNames -Version '0.1.5' | Where-Object { !$_.StartsWith('DuetClipboard-0.1.5-') }).Count) { throw 'Legacy release filenames changed.' }
 $taskNames = @(Get-ReleaseAssetNames -Version $taskVersion)
+if (@($taskNames | Where-Object { !$_.StartsWith('CultCopy-0.1.6-') }).Count) { throw 'New release filenames must use Cult Copy.' }
 foreach ($taskName in $taskNames) { [IO.File]::WriteAllText((Join-Path $taskDirectory $taskName), 'fixture ' + $taskName) }
 $taskVerifier = Join-Path $PSScriptRoot 'release-assets.ps1'
 & $taskVerifier -Mode Prepare -Directory $taskDirectory -Version $taskVersion -SourceSha $taskSha

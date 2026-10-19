@@ -39,7 +39,7 @@ pub fn start() -> mpsc::Sender<ClipboardNotice> {
                 }
                 let mut notification = notify_rust::Notification::new();
                 notification
-                    .appname("Duet Clipboard")
+                    .appname("Cult Copy")
                     .summary("New clipboard")
                     .body(&message(&notice))
                     .timeout(3500);

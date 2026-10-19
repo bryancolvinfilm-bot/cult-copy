@@ -1,6 +1,6 @@
-# Duet Clipboard
+# Cult Copy
 
-<img src="packaging/icons/icon-256.png" alt="Duet Clipboard: overlapping white and green boxes" width="96" height="96">
+<img src="packaging/icons/icon-256.png" alt="Cult Copy: overlapping white and green boxes" width="96" height="96">
 
 A third-party, open-source Rust tray/menu bar app that shares text, images, files, and folders between paired computers on a local network. Each installation sends and receives. There is no central server, account, or cloud service. Licensed under the [MIT License](LICENSE).
 
@@ -11,8 +11,9 @@ This is an early release. Mac-to-PC clipboard sharing has been confirmed working
 ## Downloads
 
 Get the download for your computer from the
-[latest public release](https://github.com/bryancolvinfilm-bot/duet-clipboard/releases/latest).
+[latest public release](https://github.com/bryancolvinfilm-bot/cult-copy/releases/latest).
 The matrix below applies to v0.1.5 and newer; earlier releases have fewer downloads.
+The Cult Copy name and `CultCopy-` filenames start with v0.1.6.
 
 | System | Processor | Recommended download | Alternative |
 | --- | --- | --- | --- |
@@ -26,15 +27,18 @@ The matrix below applies to v0.1.5 and newer; earlier releases have fewer downlo
 | Rocky Linux 8 | Intel / AMD, x64 | `rocky8-x64.rpm` | |
 | Rocky Linux 8 | ARM64 / aarch64 | `rocky8-arm64.rpm` | |
 
-Each filename starts with `DuetClipboard-<version>-`. **x64** means Intel/AMD
+Each filename starts with `CultCopy-<version>-`. **x64** means Intel/AMD
 64-bit; **ARM64** means 64-bit Arm. The Mac universal app contains both.
 Every release built from this matrix includes all twelve packages plus `CHECKSUMS.sha256` and
 `BUILD-INFO.json` with the source commit and package hashes.
 
-On Mac, quit the running app, open the DMG, and drag **Duet Clipboard** onto
+On Mac, quit the running app, open the DMG, and drag **Cult Copy** onto
 **Applications**. The PKG remains available for people who prefer an installer.
+If upgrading from the previous name on Mac, quit the old app and use the **PKG**:
+it moves the existing bundle to **Cult Copy.app** and replaces it in place. A
+DMG drag between different bundle names does not remove the old copy.
 On Linux, make the AppImage executable and open it. Without FUSE, run
-`./DuetClipboard-<version>-linux-<arch>.AppImage --appimage-extract-and-run`.
+`./CultCopy-<version>-linux-<arch>.AppImage --appimage-extract-and-run`.
 Keep an AppImage in a permanent location before enabling **Start at login**.
 For applications-menu integration, run the `.run` alternative with `sh`.
 Linux downloads use the Ubuntu 24.04/glibc 2.39 baseline and system desktop and
@@ -42,10 +46,10 @@ graphics libraries; AppImage packaging does not remove those requirements.
 
 Fedora 44 and Rocky Linux 8 also have native RPMs, built separately inside each
 distro for x64 and ARM64. Install the matching download with
-`sudo dnf install ./DuetClipboard-<version>-<fedora|rocky8>-<arch>.rpm`.
+`sudo dnf install ./CultCopy-<version>-<fedora|rocky8>-<arch>.rpm`.
 The Rocky 8 build uses its glibc 2.28 baseline; the Fedora RPM targets Fedora 44.
 DNF installs the desktop library dependencies, launcher, and icons system-wide.
-When switching from a per-user `.run` installation, quit Duet and remove the old
+When switching from a per-user `.run` installation, quit Cult Copy and remove the old
 `~/.local/share/applications/duet-clipboard.desktop` (or the equivalent under
 `$XDG_DATA_HOME`) so it does not override the RPM's launcher. Clipboard settings
 and history use the same per-user profile.
@@ -53,6 +57,21 @@ and history use the same per-user profile.
 Installers are development builds without public release signing/notarization.
 For the agent workflow that pushes, checks, builds all platforms, and publishes
 verified downloads, see [publish.md](publish.md).
+
+### Upgrading existing installations
+
+Cult Copy continues the same application under a new name. Install over the
+existing version; keep the same Linux package format when upgrading. Device
+keys, pairings, settings, and clipboard history retain their original profile
+locations. The icon is unchanged. The network protocol remains compatible with
+earlier releases, subject to the existing folder-transfer requirements below.
+
+Compatibility identifiers deliberately keep their original spelling:
+`io.duetclipboard.app`, the Windows installer GUID and install directory, the
+`duet-clipboard` executable, Linux RPM/desktop IDs, startup entry IDs, and the
+`DuetClipboard` data-directory identity. These are internal upgrade contracts;
+changing them would create separate installs or profiles. New downloads and
+the source project use **Cult Copy** / `cult-copy`.
 
 ## Use
 
@@ -81,21 +100,21 @@ Above the automatic limit, only an offer is sent. Each recipient independently a
 
 ### Mac-to-Mac clipboard setup
 
-Apple's Universal Clipboard can compete with Duet on Macs signed in to the same
-Apple Account. In Duet's **Settings → Mac clipboard setup**, click **Open Handoff
+Apple's Universal Clipboard can compete with Cult Copy on Macs signed in to the same
+Apple Account. In Cult Copy's **Settings → Mac clipboard setup**, click **Open Handoff
 settings**, then turn off **Allow Handoff between this Mac and your iCloud devices**.
-Repeat on every Mac using Duet. Turning Handoff off also disables handing off
+Repeat on every Mac using Cult Copy. Turning Handoff off also disables handing off
 activities such as Safari pages between Apple devices.
 
-Duet checks the stored Handoff preferences without changing them. The status is
+Cult Copy checks the stored Handoff preferences without changing them. The status is
 best effort: missing, mixed, or unreadable values show **Couldn't confirm** rather
-than guessing. It checks again when you return to Duet, while its window is focused,
+than guessing. It checks again when you return to Cult Copy, while its window is focused,
 or when you click **Check again**. Always verify the actual switch in System Settings.
 If the link cannot reach the pane, go to **System Settings → General → AirDrop &
 Handoff** (or **AirDrop & Continuity**). On Monterey, use **System Preferences → General**.
 
-Duet skips clipboard announcements marked as arriving through Apple's Handoff
-before reading their contents. Items delivered by Duet are written with Apple's
+Cult Copy skips clipboard announcements marked as arriving through Apple's Handoff
+before reading their contents. Items delivered by Cult Copy are written with Apple's
 `currentHostOnly` option so Universal Clipboard does not share them again. These
 safeguards do not disable Apple's sharing of new copies made in other apps while
 Handoff remains on; macOS provides no supported app-level exclusive clipboard mode.
@@ -119,7 +138,7 @@ History targets 30 recent entries; the current clipboard and active downloads ar
 
 Known cleanup issue: cache deletion skipped while an outgoing transfer is active is not retried later, and interrupted operations can leave stale cache directories. A byte budget, age-based expiry, and more complete cache cleanup are planned improvements.
 
-Other clipboard synchronization tools can independently overwrite the same system clipboard. Use this app's approval/pause settings or disable overlapping sync tools if they compete. The networking does not hook Duet, intercept keys, change proxy/DNS settings, or require a fixed application port.
+Other clipboard synchronization tools can independently overwrite the same system clipboard. Use this app's approval/pause settings or disable overlapping sync tools if they compete. The networking does not intercept keys, change proxy/DNS settings, or require a fixed application port.
 
 ## Build and installers
 
@@ -190,7 +209,7 @@ CLI options: `--background`, `--data-dir PATH`, `--version`, `--help`. `--data-d
 
 Opening the app again activates the existing instance through an authenticated loopback-only endpoint. This also provides a way to reopen the window on Linux desktops without a tray host.
 
-Closing the window hides it to the tray on Windows, macOS, and Linux X11 when a tray is available. On native Wayland, close quits the app because the [window backend does not support hiding](https://docs.rs/winit/0.30.13/winit/window/struct.Window.html#method.set_visible). Close also quits when the tray could not be created. Linux's per-user installer installs PNG/SVG launcher icons and a desktop entry matching the window's `duet-clipboard` app ID.
+Closing the window keeps Cult Copy running in the tray, including on native Linux Wayland. Clipboard syncing, notifications, and tray status updates continue while the window is closed. Use **Open clipboard** in the tray menu or launch the app again to reopen it. Choose **Quit** in the tray menu to exit. A disabled **Version** label at the bottom of that menu shows the running build's version. Linux's per-user installer installs PNG/SVG launcher icons and a desktop entry matching the window's `duet-clipboard` app ID.
 
 ## Design
 
@@ -207,7 +226,7 @@ Platform API references: [clipboard-rs](https://github.com/ChurchTao/clipboard-r
 ## Artwork
 
 The white-and-green overlapping boxes come from
-[`packaging/duet-clipboard.svg`](packaging/duet-clipboard.svg). Windows EXE/setup,
+[`packaging/cult-copy.svg`](packaging/cult-copy.svg). Windows EXE/setup,
 Mac app bundles, Linux launchers/AppImages, and the tray use the same design.
 Run `scripts/generate-artwork.ps1` on Windows to regenerate the committed PNG,
 ICO, ICNS, and [repository preview image](docs/social-preview.png).

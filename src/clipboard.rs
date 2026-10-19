@@ -384,7 +384,7 @@ fn macos_publish(items: &[objc2::rc::Retained<objc2_app_kit::NSPasteboardItem>])
         .collect();
     let pasteboard = NSPasteboard::generalPasteboard();
     // This must replace clearContents(), not precede it: clearing again would
-    // discard CurrentHostOnly. Duet already delivered these items over its LAN.
+    // discard CurrentHostOnly. Cult Copy already delivered these items over its LAN.
     pasteboard.prepareForNewContentsWithOptions(NSPasteboardContentsOptions::CurrentHostOnly);
     ensure!(
         pasteboard.writeObjects(&NSArray::from_retained_slice(&objects)),

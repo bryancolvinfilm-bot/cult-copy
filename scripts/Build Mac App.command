@@ -11,7 +11,7 @@ task_finish() {
         printf '\nBuild stopped. The messages above explain why.\n'
         printf 'Build log: %s\n' "$task_root/dist/mac-build.log"
     fi
-    if [ -t 0 ] && [ "${DUET_BUILD_NO_PAUSE:-0}" != 1 ]; then
+    if [ -t 0 ] && [ "${CULT_COPY_BUILD_NO_PAUSE:-0}" != 1 ]; then
         printf '\nPress Return to close this window. '
         read -r task_answer || true
     fi
@@ -26,12 +26,12 @@ fi
 
 mkdir -p dist
 exec > >(tee -a "$task_root/dist/mac-build.log") 2>&1
-printf '\nDuet Clipboard Mac build - %s\n' "$(date)"
+printf '\nCult Copy Mac build - %s\n' "$(date)"
 printf '%s\n' 'This builds a universal Mac installer. It does not install the app or change your clipboard.'
 
 task_major=$(sw_vers -productVersion | cut -d . -f 1)
 if [ "$task_major" -lt 12 ]; then
-    printf '%s\n' 'Duet Clipboard requires macOS 12 or newer.' >&2
+    printf '%s\n' 'Cult Copy requires macOS 12 or newer.' >&2
     exit 1
 fi
 
@@ -47,7 +47,7 @@ task_cargo_home="${CARGO_HOME:-$HOME/.cargo}"
 export PATH="$task_cargo_home/bin:$PATH"
 if ! command -v rustup >/dev/null 2>&1; then
     printf '%s\n' 'Installing the official Rust toolchain in your user account...'
-    task_temp=$(mktemp -d "${TMPDIR:-/tmp}/duet-rustup.XXXXXXXX")
+    task_temp=$(mktemp -d "${TMPDIR:-/tmp}/cult-copy-rustup.XXXXXXXX")
     if ! curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs -o "$task_temp/rustup-init.sh"; then
         rm -f -- "$task_temp/rustup-init.sh"
         rmdir -- "$task_temp"
@@ -73,8 +73,8 @@ printf '\nBuilding Apple Silicon and Intel binaries, then packaging...\n'
 sh scripts/package-unix.sh
 
 . "$task_root/scripts/version.sh"
-task_package="$task_root/dist/DuetClipboard-$task_version-macos-universal.dmg"
+task_package="$task_root/dist/CultCopy-$task_version-macos-universal.dmg"
 shasum -a 256 "$task_package" > dist/mac-package.sha256
 printf '\nInstaller ready: %s\n' "$task_package"
-printf '%s\n' 'Open the disk image and drag Duet Clipboard into Applications, then pair it with Windows in Devices.'
+printf '%s\n' 'Open the disk image and drag Cult Copy into Applications, then pair it with Windows in Devices.'
 open -R "$task_package"

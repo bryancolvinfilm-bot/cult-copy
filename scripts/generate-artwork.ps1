@@ -5,7 +5,7 @@ Add-Type -AssemblyName System.Drawing
 $taskRoot = Split-Path -Parent $PSScriptRoot
 $taskOutput = Join-Path $taskRoot 'packaging/icons'
 New-Item -ItemType Directory -Path $taskOutput -Force | Out-Null
-[xml]$taskSvg = Get-Content -LiteralPath (Join-Path $taskRoot 'packaging/duet-clipboard.svg') -Raw
+[xml]$taskSvg = Get-Content -LiteralPath (Join-Path $taskRoot 'packaging/cult-copy.svg') -Raw
 
 function New-RoundedPath([single]$X, [single]$Y, [single]$Width, [single]$Height, [single]$Radius) {
     $taskPath = [Drawing.Drawing2D.GraphicsPath]::new()
@@ -67,7 +67,7 @@ foreach ($taskSize in @(16,32,48,64,128,256,512,1024)) {
 $taskTray = New-BrandBitmap 32 $true
 try { $taskTray.Save((Join-Path $taskOutput 'tray-32.png'), [Drawing.Imaging.ImageFormat]::Png) } finally { $taskTray.Dispose() }
 
-$taskStream = [IO.File]::Create((Join-Path $taskOutput 'duet-clipboard.ico'))
+$taskStream = [IO.File]::Create((Join-Path $taskOutput 'cult-copy.ico'))
 $taskWriter = [IO.BinaryWriter]::new($taskStream)
 try {
     $taskSizes = @(16,32,48,64,128,256)
@@ -99,7 +99,7 @@ try {
     }
     $taskLength = [int]$taskStream.Length
     $taskStream.Position = 4; Write-BigEndian $taskWriter $taskLength
-    [IO.File]::WriteAllBytes((Join-Path $taskOutput 'duet-clipboard.icns'), $taskStream.ToArray())
+    [IO.File]::WriteAllBytes((Join-Path $taskOutput 'cult-copy.icns'), $taskStream.ToArray())
 } finally { $taskWriter.Dispose() }
 
 # GitHub's recommended 1280x640 social-preview size. Upload once in repository
@@ -118,7 +118,7 @@ try {
     $taskGreen = [Drawing.SolidBrush]::new([Drawing.ColorTranslator]::FromHtml('#6de0c1'))
     $taskMuted = [Drawing.SolidBrush]::new([Drawing.ColorTranslator]::FromHtml('#97a3b8'))
     try {
-        $taskGraphics.DrawString('Duet Clipboard', $taskTitle, $taskWhite, 356, 144)
+        $taskGraphics.DrawString('Cult Copy', $taskTitle, $taskWhite, 356, 144)
         $taskGraphics.DrawString('One clipboard across your computers.', $taskBody, $taskWhite, 360, 232)
         $taskGraphics.DrawString('Text, images & files. Paired. Local. Private.', $taskBody, $taskMuted, 360, 282)
         $taskGraphics.DrawString('WINDOWS  /  macOS  /  LINUX', $taskSmall, $taskGreen, 80, 454)
@@ -126,4 +126,4 @@ try {
         $taskCard.Save((Join-Path $taskRoot 'docs/social-preview.png'), [Drawing.Imaging.ImageFormat]::Png)
     } finally { $taskTitle.Dispose(); $taskBody.Dispose(); $taskSmall.Dispose(); $taskWhite.Dispose(); $taskGreen.Dispose(); $taskMuted.Dispose() }
 } finally { $taskGraphics.Dispose(); $taskBrand.Dispose(); $taskCard.Dispose() }
-Write-Output 'Generated app, tray, Windows, Mac, and social-preview artwork from packaging/duet-clipboard.svg.'
+Write-Output 'Generated app, tray, Windows, Mac, and social-preview artwork from packaging/cult-copy.svg.'

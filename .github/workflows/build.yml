@@ -84,7 +84,7 @@ jobs:
           key: ${{ matrix.id }}
       - name: Linux system libraries
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y pkg-config xvfb desktop-file-utils libx11-dev libxi-dev libxrandr-dev libxcursor-dev libxinerama-dev libegl1-mesa-dev libgl1-mesa-dev libwayland-dev libxkbcommon-dev
+        run: sudo apt-get update && sudo apt-get install -y pkg-config xvfb weston desktop-file-utils libx11-dev libxi-dev libxrandr-dev libxcursor-dev libxinerama-dev libegl1-mesa-dev libgl1-mesa-dev libgl1-mesa-dri libwayland-dev libxkbcommon-dev libxkbcommon-x11-0
       - name: Verify native architecture
         shell: bash
         env:
@@ -101,6 +101,11 @@ jobs:
       - name: Native Linux X11 clipboard
         if: runner.os == 'Linux'
         run: xvfb-run -a cargo test --locked --test native_clipboard -- --ignored --test-threads=1
+      - name: Linux tray and window lifecycle
+        if: runner.os == 'Linux'
+        run: |
+          sh scripts/test-linux-lifecycle.sh x11
+          sh scripts/test-linux-lifecycle.sh wayland
       - name: Build Windows
         if: runner.os == 'Windows'
         run: cargo build --release --locked
@@ -113,32 +118,44 @@ jobs:
           $icon = [System.Drawing.Icon]::ExtractAssociatedIcon((Resolve-Path target/release/duet-clipboard.exe))
           if (!$icon) { throw 'Windows executable has no icon.' }
           $icon.Dispose()
+      - name: Windows upgrade from the original app
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/test-windows-upgrade.ps1 -Architecture '${{ matrix.arch }}'
       - name: macOS or Linux installer
         if: runner.os != 'Windows'
         run: sh scripts/package-unix.sh
       - name: Linux installer smoke test
         if: runner.os == 'Linux'
         run: |
-          task_install_dir=$(mktemp -d "$RUNNER_TEMP/duet-install.XXXXXXXX")
-          XDG_DATA_HOME="$task_install_dir/share" sh "dist/DuetClipboard-$APP_VERSION-linux-${{ matrix.arch }}.run"
+          task_install_dir=$(mktemp -d "$RUNNER_TEMP/cult-copy-install.XXXXXXXX")
+          mkdir -p "$task_install_dir/share/applications" "$task_install_dir/share/duet-clipboard"
+          printf '[Desktop Entry]\nName=Duet Clipboard\n' > "$task_install_dir/share/applications/duet-clipboard.desktop"
+          printf 'legacy executable\n' > "$task_install_dir/share/duet-clipboard/duet-clipboard"
+          XDG_DATA_HOME="$task_install_dir/share" sh "dist/CultCopy-$APP_VERSION-linux-${{ matrix.arch }}.run"
           "$task_install_dir/share/duet-clipboard/duet-clipboard" --version
+          test "$(grep '^Name=' "$task_install_dir/share/applications/duet-clipboard.desktop")" = 'Name=Cult Copy'
+          test ! -e "$task_install_dir/share/applications/cult-copy.desktop"
           desktop-file-validate "$task_install_dir/share/applications/duet-clipboard.desktop"
           test "$(sed -n 's/^Icon=//p' "$task_install_dir/share/applications/duet-clipboard.desktop")" = duet-clipboard
           test "$(sed -n 's/^StartupWMClass=//p' "$task_install_dir/share/applications/duet-clipboard.desktop")" = duet-clipboard
           cmp packaging/icons/icon-256.png "$task_install_dir/share/icons/hicolor/256x256/apps/duet-clipboard.png"
-          cmp packaging/duet-clipboard.svg "$task_install_dir/share/icons/hicolor/scalable/apps/duet-clipboard.svg"
-          chmod +x "dist/DuetClipboard-$APP_VERSION-linux-${{ matrix.arch }}.AppImage"
-          "dist/DuetClipboard-$APP_VERSION-linux-${{ matrix.arch }}.AppImage" --appimage-extract-and-run --version
+          cmp packaging/cult-copy.svg "$task_install_dir/share/icons/hicolor/scalable/apps/duet-clipboard.svg"
+          chmod +x "dist/CultCopy-$APP_VERSION-linux-${{ matrix.arch }}.AppImage"
+          "dist/CultCopy-$APP_VERSION-linux-${{ matrix.arch }}.AppImage" --appimage-extract-and-run --version
           desktop-file-validate dist/*.AppDir/duet-clipboard.desktop
       - name: Verify packaged Mac icon
         if: runner.os == 'macOS'
         run: |
-          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' 'dist/macos-root/Duet Clipboard.app/Contents/Info.plist')" = duet-clipboard.icns
-          iconutil -c iconset 'dist/macos-root/Duet Clipboard.app/Contents/Resources/duet-clipboard.icns' -o "$RUNNER_TEMP/duet.iconset"
-          test -f "$RUNNER_TEMP/duet.iconset/icon_512x512@2x.png"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' 'dist/macos-root/Cult Copy.app/Contents/Info.plist')" = cult-copy.icns
+          iconutil -c iconset 'dist/macos-root/Cult Copy.app/Contents/Resources/cult-copy.icns' -o "$RUNNER_TEMP/cult-copy.iconset"
+          test -f "$RUNNER_TEMP/cult-copy.iconset/icon_512x512@2x.png"
+      - name: Mac upgrade from the original app
+        if: runner.os == 'macOS'
+        run: sh scripts/test-macos-upgrade.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: DuetClipboard-${{ matrix.id }}-${{ github.sha }}
+          name: CultCopy-${{ matrix.id }}-${{ github.sha }}
           path: |
             dist/*setup.exe
             dist/*.pkg
@@ -192,7 +209,7 @@ jobs:
         run: sh scripts/test-linux-rpm.sh '${{ matrix.distro }}'
       - uses: actions/upload-artifact@v4
         with:
-          name: DuetClipboard-${{ matrix.id }}-${{ github.sha }}
+          name: CultCopy-${{ matrix.id }}-${{ github.sha }}
           path: dist/*.rpm
           if-no-files-found: error
           retention-days: 14
@@ -212,7 +229,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/download-artifact@v4
         with:
-          pattern: DuetClipboard-*-${{ github.sha }}
+          pattern: CultCopy-*-${{ github.sha }}
           merge-multiple: true
           path: release-assets
       - name: Prepare and validate all platform assets

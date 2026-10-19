@@ -6,9 +6,9 @@ $Binary = (Resolve-Path -LiteralPath $Binary).Path
 $taskProfile = Join-Path $taskRoot ('.tools\lifecycle-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $taskProfile -Force | Out-Null
 $taskReport = Join-Path $taskProfile 'result.json'
-$taskPreviousReport = $env:DUET_LIFECYCLE_TEST_TO
+$taskPreviousReport = $env:CULT_COPY_LIFECYCLE_TEST_TO
 try {
-    $env:DUET_LIFECYCLE_TEST_TO = $taskReport
+    $env:CULT_COPY_LIFECYCLE_TEST_TO = $taskReport
     $taskProcess = Start-Process -FilePath $Binary -WindowStyle Hidden -ArgumentList @('--data-dir', ('"' + $taskProfile + '"')) -PassThru
     if (!$taskProcess.WaitForExit(20000)) {
         # Stop only this test process. Keep its isolated profile for diagnosis.
@@ -22,6 +22,6 @@ try {
     Write-Output 'Windows close, hidden refresh, restore, activation, minimize, and quit checks passed.'
 } finally {
     if ($null -eq $taskPreviousReport) {
-        Remove-Item Env:DUET_LIFECYCLE_TEST_TO -ErrorAction SilentlyContinue
-    } else { $env:DUET_LIFECYCLE_TEST_TO = $taskPreviousReport }
+        Remove-Item Env:CULT_COPY_LIFECYCLE_TEST_TO -ErrorAction SilentlyContinue
+    } else { $env:CULT_COPY_LIFECYCLE_TEST_TO = $taskPreviousReport }
 }

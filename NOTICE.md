@@ -1,6 +1,6 @@
 # Independent third-party project
 
-Duet Clipboard is an independent, third-party open-source project that provides
+Cult Copy is an independent, third-party open-source project that provides
 clipboard sharing between paired computers on a local network.
 
 This project has no relation to Duet Display. It is not affiliated with,

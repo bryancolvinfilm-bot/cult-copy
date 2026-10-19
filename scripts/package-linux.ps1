@@ -16,8 +16,8 @@ if ($taskMachine -ne $taskExpectedMachine) { throw 'The ELF architecture does no
 $taskPayload = Join-Path $taskRoot 'dist\linux-payload'
 New-Item -ItemType Directory -Path $taskPayload -Force | Out-Null
 Copy-Item -LiteralPath $Binary -Destination (Join-Path $taskPayload 'duet-clipboard') -Force
-Copy-Item -LiteralPath (Join-Path $taskRoot 'packaging\duet-clipboard.svg') -Destination $taskPayload -Force
-Copy-Item -LiteralPath (Join-Path $taskRoot 'packaging\duet-clipboard.desktop') -Destination $taskPayload -Force
+Copy-Item -LiteralPath (Join-Path $taskRoot 'packaging\cult-copy.svg') -Destination (Join-Path $taskPayload 'duet-clipboard.svg') -Force
+Copy-Item -LiteralPath (Join-Path $taskRoot 'packaging\cult-copy.desktop') -Destination (Join-Path $taskPayload 'duet-clipboard.desktop') -Force
 Copy-Item -LiteralPath (Join-Path $taskRoot 'packaging\icons\icon-256.png') -Destination (Join-Path $taskPayload 'duet-clipboard.png') -Force
 Copy-Item -LiteralPath (Join-Path $taskRoot 'LICENSE') -Destination $taskPayload -Force
 Copy-Item -LiteralPath (Join-Path $taskRoot 'NOTICE.md') -Destination $taskPayload -Force
@@ -28,7 +28,7 @@ $taskArchive = Join-Path $taskRoot 'dist\linux-payload.tar.gz'
 if ($LASTEXITCODE -ne 0) { throw 'Could not create the Linux payload archive.' }
 $taskScript = [System.IO.File]::ReadAllText((Join-Path $taskRoot 'packaging\linux-installer.sh')).Replace("`r`n", "`n")
 if (!$taskScript.EndsWith("`n")) { $taskScript += "`n" }
-$taskOutput = Join-Path $taskRoot ('dist\DuetClipboard-' + $taskVersion + '-linux-' + $Architecture + '.run')
+$taskOutput = Join-Path $taskRoot ('dist\CultCopy-' + $taskVersion + '-linux-' + $Architecture + '.run')
 $taskStream = [System.IO.File]::Create($taskOutput)
 try {
     $taskBytes = [System.Text.Encoding]::UTF8.GetBytes($taskScript)

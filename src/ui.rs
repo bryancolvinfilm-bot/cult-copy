@@ -4,7 +4,9 @@ use crate::{
 };
 use eframe::egui::{self, Color32, RichText, Stroke, Vec2};
 use std::{
+    cell::RefCell,
     collections::HashMap,
+    rc::Rc,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -12,7 +14,7 @@ use std::{
     time::Duration,
 };
 use tray_icon::{
-    menu::{Menu, MenuEvent, MenuItem},
+    menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem},
     Icon, MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent,
 };
 use uuid::Uuid;
@@ -42,15 +44,13 @@ struct Settings<'a> {
 pub struct App {
     handle: Handle,
     tab: Tab,
-    _tray: Option<TrayIcon>,
-    can_hide: bool,
+    _tray: Option<Rc<Tray>>,
     textures: HashMap<Uuid, egui::TextureHandle>,
     address: String,
     limit: f64,
     quitting: Arc<AtomicBool>,
     attention: Arc<AtomicBool>,
     window_control: crate::window::WindowControl,
-    last_indicator: Option<crate::model::ClipboardNotice>,
     settling_frames: u8,
     #[cfg(any(target_os = "macos", feature = "ui-test"))]
     mac_clipboard: macos::MacClipboardSetup,
@@ -61,8 +61,31 @@ pub struct App {
 }
 
 impl App {
+    #[cfg(not(target_os = "linux"))]
     pub fn new(cc: &eframe::CreationContext<'_>, handle: Handle) -> Self {
         handle.set_notification_sender(crate::notifications::start());
+        let quitting = Arc::new(AtomicBool::new(false));
+        let attention = Arc::new(AtomicBool::new(false));
+        let window_control =
+            crate::window::WindowControl::new(cc, quitting.clone(), attention.clone());
+        let wake = window_control.clone();
+        handle.set_notifier(Arc::new(move |show| {
+            wake.refresh(show);
+        }));
+        let tray = Tray::new(&handle, &window_control)
+            .map_err(|error| tracing::warn!("Tray unavailable: {error}"))
+            .ok();
+        Self::with_tray(cc, handle, window_control, quitting, attention, tray)
+    }
+
+    pub(crate) fn with_tray(
+        cc: &eframe::CreationContext<'_>,
+        handle: Handle,
+        window_control: crate::window::WindowControl,
+        quitting: Arc<AtomicBool>,
+        attention: Arc<AtomicBool>,
+        tray: Option<Rc<Tray>>,
+    ) -> Self {
         let mut visuals = egui::Visuals::dark();
         visuals.panel_fill = Color32::from_rgb(18, 23, 34);
         visuals.window_fill = visuals.panel_fill;
@@ -73,17 +96,6 @@ impl App {
             style.spacing.item_spacing = Vec2::new(10.0, 10.0);
             style.spacing.button_padding = Vec2::new(12.0, 7.0);
         });
-        let quitting = Arc::new(AtomicBool::new(false));
-        let attention = Arc::new(AtomicBool::new(false));
-        let window_control =
-            crate::window::WindowControl::new(cc, quitting.clone(), attention.clone());
-        let wake = window_control.clone();
-        handle.set_notifier(Arc::new(move |show| {
-            wake.refresh(show);
-        }));
-        let tray = build_tray(&handle, &window_control)
-            .map_err(|error| tracing::warn!("Tray unavailable: {error}"))
-            .ok();
         let limit = handle.view.lock().unwrap().limit as f64;
         #[cfg(feature = "ui-test")]
         cc.egui_ctx
@@ -104,21 +116,19 @@ impl App {
         Self {
             handle,
             tab: if cfg!(feature = "ui-test")
-                && std::env::var("DUET_PREVIEW_TAB").is_ok_and(|value| value == "settings")
+                && std::env::var("CULT_COPY_PREVIEW_TAB").is_ok_and(|value| value == "settings")
             {
                 Tab::Settings
             } else {
                 Tab::Clipboard
             },
             _tray: tray,
-            can_hide: crate::window::can_hide(cc),
             textures: HashMap::new(),
             address: String::new(),
             limit,
             quitting,
             attention,
             window_control,
-            last_indicator: None,
             settling_frames: 0,
             #[cfg(any(target_os = "macos", feature = "ui-test"))]
             mac_clipboard: macos::MacClipboardSetup::default(),
@@ -484,10 +494,6 @@ impl App {
             .small()
             .color(MUTED),
         );
-        ui.add_space(15.0);
-        if ui.button("Quit Duet Clipboard").clicked() {
-            self.window_control.quit();
-        }
     }
 }
 
@@ -501,13 +507,24 @@ impl eframe::App for App {
             self.settling_frames += 1;
             ctx.request_repaint_after(Duration::from_millis(16));
         }
+        #[cfg(not(target_os = "linux"))]
         if ctx.input(|i| i.viewport().close_requested())
             && !self.quitting.load(Ordering::Relaxed)
             && self._tray.is_some()
-            && self.can_hide
         {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
             ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
+        }
+        #[cfg(target_os = "linux")]
+        if self.quitting.load(Ordering::Relaxed) {
+            // Quit can arrive while the native window is still being created.
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+        }
+        #[cfg(target_os = "linux")]
+        if ctx.input(|i| i.viewport().close_requested()) {
+            // Release only this native surface. The resident app owns the tray,
+            // engine and notifier, and can create another window when requested.
+            self.window_control.detach();
         }
         // Snapshot the model so drawing never holds the background engine's lock.
         let (
@@ -540,37 +557,8 @@ impl eframe::App for App {
                 view.latest_incoming.clone(),
             )
         };
-        let indicator = history
-            .iter()
-            .find(|item| item.status == Status::AwaitingApproval)
-            .map(|item| crate::model::ClipboardNotice {
-                event: item.offer.id,
-                kind: item.offer.kind.clone(),
-                phase: crate::model::NoticePhase::ApprovalNeeded,
-            })
-            .or(incoming);
-        if indicator != self.last_indicator {
-            if let (Some(tray), Some(notice)) = (&self._tray, &indicator) {
-                if let Ok(icon) = Icon::from_rgba(status_icon(&notice.phase), 32, 32) {
-                    let _ = tray.set_icon(Some(icon));
-                }
-                let label = match notice.kind {
-                    Kind::Text => "Text",
-                    Kind::Image => "Image",
-                    Kind::Files => "File",
-                };
-                let _ = tray.set_tooltip(Some(format!(
-                    "New clipboard · {label} · {}",
-                    crate::notifications::message(notice)
-                )));
-            }
-            if indicator.is_none() {
-                if let Some(tray) = &self._tray {
-                    let _ = tray.set_icon(Icon::from_rgba(icon_rgba(), 32, 32).ok());
-                    let _ = tray.set_tooltip(Some("Duet Clipboard"));
-                }
-            }
-            self.last_indicator = indicator;
+        if let Some(tray) = &self._tray {
+            tray.update(current_indicator(&history, incoming));
         }
         if self.attention.swap(false, Ordering::Relaxed) {
             self.tab = if peers.iter().any(|p| p.connected && !p.trusted) {
@@ -588,7 +576,7 @@ impl eframe::App for App {
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
                     ui.vertical(|ui| {
-                        ui.label(RichText::new("Duet Clipboard").size(27.0).strong());
+                        ui.label(RichText::new("Cult Copy").size(27.0).strong());
                         ui.label(
                             RichText::new(format!(
                                 "{}  ·  {}",
@@ -681,7 +669,24 @@ impl eframe::App for App {
             ctx.request_repaint_after(Duration::from_millis(200));
         }
         #[cfg(feature = "ui-test")]
-        if let Ok(path) = std::env::var("DUET_SCREENSHOT_TO") {
+        #[cfg(target_os = "linux")]
+        if std::env::var_os("CULT_COPY_LIFECYCLE_TEST_TO").is_some() {
+            self.preview_frames += 1;
+            if self.preview_frames == 8 {
+                ctx.send_viewport_cmd(egui::ViewportCommand::Screenshot(egui::UserData::default()));
+            }
+            if ctx.input(|input| {
+                input
+                    .events
+                    .iter()
+                    .any(|event| matches!(event, egui::Event::Screenshot { .. }))
+            }) {
+                self.window_control.rendered();
+            }
+            ctx.request_repaint_after(Duration::from_millis(30));
+        }
+        #[cfg(feature = "ui-test")]
+        if let Ok(path) = std::env::var("CULT_COPY_SCREENSHOT_TO") {
             self.preview_frames += 1;
             if self.preview_frames == 8 {
                 ctx.send_viewport_cmd(egui::ViewportCommand::Screenshot(egui::UserData::default()));
@@ -711,55 +716,180 @@ impl eframe::App for App {
 
 impl Drop for App {
     fn drop(&mut self) {
+        #[cfg(not(target_os = "linux"))]
         self.window_control.stop();
+        #[cfg(target_os = "linux")]
+        self.window_control.detach();
     }
 }
 
-fn build_tray(handle: &Handle, control: &crate::window::WindowControl) -> anyhow::Result<TrayIcon> {
-    let menu = Menu::new();
-    let open = MenuItem::new("Open clipboard", true, None);
-    let pause = MenuItem::new("Pause / resume sharing", true, None);
-    let quit = MenuItem::new("Quit", true, None);
-    menu.append_items(&[&open, &pause, &quit])?;
-    let open_id = open.id().clone();
-    let pause_id = pause.id().clone();
-    let quit_id = quit.id().clone();
-    let window = control.clone();
-    let bus = handle.clone();
-    MenuEvent::set_event_handler(Some(move |event: MenuEvent| {
-        if event.id == open_id {
-            window.open();
-        }
-        if event.id == pause_id {
-            let paused = bus.view.lock().unwrap().paused;
-            bus.send(Command::SetPaused(!paused));
-        }
-        if event.id == quit_id {
-            window.quit();
-        }
-    }));
-    let window = control.clone();
-    TrayIconEvent::set_event_handler(Some(move |event: TrayIconEvent| {
-        if matches!(
-            event,
-            TrayIconEvent::Click {
-                button: MouseButton::Left,
-                button_state: MouseButtonState::Up,
-                ..
-            } | TrayIconEvent::DoubleClick {
-                button: MouseButton::Left,
-                ..
+fn current_indicator(
+    history: &[HistoryItem],
+    incoming: Option<crate::model::ClipboardNotice>,
+) -> Option<crate::model::ClipboardNotice> {
+    history
+        .iter()
+        .find(|item| item.status == Status::AwaitingApproval)
+        .map(|item| crate::model::ClipboardNotice {
+            event: item.offer.id,
+            kind: item.offer.kind.clone(),
+            phase: crate::model::NoticePhase::ApprovalNeeded,
+        })
+        .or(incoming)
+}
+
+pub(crate) struct Tray {
+    icon: TrayIcon,
+    last_indicator: RefCell<Option<crate::model::ClipboardNotice>>,
+    #[cfg(all(target_os = "linux", feature = "ui-test"))]
+    pub(crate) test: TrayTest,
+}
+
+impl Tray {
+    pub(crate) fn new(
+        handle: &Handle,
+        control: &crate::window::WindowControl,
+    ) -> anyhow::Result<Rc<Self>> {
+        let menu = Menu::new();
+        let open = MenuItem::new("Open clipboard", true, None);
+        let pause = MenuItem::new("Pause / resume sharing", true, None);
+        let quit = MenuItem::new("Quit", true, None);
+        let version = MenuItem::new(
+            format!("Version {}", env!("CARGO_PKG_VERSION")),
+            false,
+            None,
+        );
+        menu.append_items(&[
+            &open,
+            &pause,
+            &quit,
+            &PredefinedMenuItem::separator(),
+            &version,
+        ])?;
+        let open_id = open.id().clone();
+        let pause_id = pause.id().clone();
+        let quit_id = quit.id().clone();
+        let window = control.clone();
+        let bus = handle.clone();
+        let handler: Arc<dyn Fn(MenuEvent) + Send + Sync> = Arc::new(move |event: MenuEvent| {
+            if event.id == open_id {
+                window.open();
             }
-        ) {
-            window.open();
+            if event.id == pause_id {
+                let paused = bus.view.lock().unwrap().paused;
+                bus.send(Command::SetPaused(!paused));
+            }
+            if event.id == quit_id {
+                window.quit();
+            }
+        });
+        let menu_handler = handler.clone();
+        MenuEvent::set_event_handler(Some(move |event| menu_handler(event)));
+        let window = control.clone();
+        TrayIconEvent::set_event_handler(Some(move |event: TrayIconEvent| {
+            if matches!(
+                event,
+                TrayIconEvent::Click {
+                    button: MouseButton::Left,
+                    button_state: MouseButtonState::Up,
+                    ..
+                } | TrayIconEvent::DoubleClick {
+                    button: MouseButton::Left,
+                    ..
+                }
+            ) {
+                window.open();
+            }
+        }));
+        let icon = TrayIconBuilder::new()
+            .with_tooltip("Cult Copy")
+            .with_icon(Icon::from_rgba(icon_rgba(), 32, 32)?)
+            .with_menu(Box::new(menu))
+            .with_menu_on_left_click(false)
+            .build()?;
+        Ok(Rc::new(Self {
+            icon,
+            last_indicator: RefCell::new(None),
+            #[cfg(all(target_os = "linux", feature = "ui-test"))]
+            test: TrayTest {
+                handler,
+                open: open.id().clone(),
+                quit: quit.id().clone(),
+                version: (version.text(), version.is_enabled()),
+                alive: Arc::new(AtomicBool::new(true)),
+                refreshes: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+            },
+        }))
+    }
+
+    #[cfg(target_os = "linux")]
+    pub(crate) fn refresh(&self, handle: &Handle) {
+        #[cfg(feature = "ui-test")]
+        self.test.refreshes.fetch_add(1, Ordering::Relaxed);
+        let indicator = {
+            let view = handle.view.lock().unwrap();
+            current_indicator(&view.history, view.latest_incoming.clone())
+        };
+        self.update(indicator);
+    }
+
+    fn update(&self, indicator: Option<crate::model::ClipboardNotice>) {
+        if *self.last_indicator.borrow() == indicator {
+            return;
         }
-    }));
-    Ok(TrayIconBuilder::new()
-        .with_tooltip("Duet Clipboard")
-        .with_icon(Icon::from_rgba(icon_rgba(), 32, 32)?)
-        .with_menu(Box::new(menu))
-        .with_menu_on_left_click(false)
-        .build()?)
+        if let Some(notice) = &indicator {
+            if let Ok(icon) = Icon::from_rgba(status_icon(&notice.phase), 32, 32) {
+                let _ = self.icon.set_icon(Some(icon));
+            }
+            let label = match notice.kind {
+                Kind::Text => "Text",
+                Kind::Image => "Image",
+                Kind::Files => "File",
+            };
+            let _ = self.icon.set_tooltip(Some(format!(
+                "New clipboard · {label} · {}",
+                crate::notifications::message(notice)
+            )));
+        } else {
+            let _ = self
+                .icon
+                .set_icon(Icon::from_rgba(icon_rgba(), 32, 32).ok());
+            let _ = self.icon.set_tooltip(Some("Cult Copy"));
+        }
+        *self.last_indicator.borrow_mut() = indicator;
+    }
+}
+
+#[cfg(all(target_os = "linux", feature = "ui-test"))]
+#[derive(Clone)]
+pub(crate) struct TrayTest {
+    handler: Arc<dyn Fn(MenuEvent) + Send + Sync>,
+    open: tray_icon::menu::MenuId,
+    quit: tray_icon::menu::MenuId,
+    pub(crate) version: (String, bool),
+    pub(crate) alive: Arc<AtomicBool>,
+    pub(crate) refreshes: Arc<std::sync::atomic::AtomicU64>,
+}
+
+#[cfg(all(target_os = "linux", feature = "ui-test"))]
+impl TrayTest {
+    pub(crate) fn open(&self) {
+        (self.handler)(MenuEvent {
+            id: self.open.clone(),
+        });
+    }
+    pub(crate) fn quit(&self) {
+        (self.handler)(MenuEvent {
+            id: self.quit.clone(),
+        });
+    }
+}
+
+#[cfg(all(target_os = "linux", feature = "ui-test"))]
+impl Drop for Tray {
+    fn drop(&mut self) {
+        self.test.alive.store(false, Ordering::Relaxed);
+    }
 }
 
 pub fn icon_rgba() -> Vec<u8> {
