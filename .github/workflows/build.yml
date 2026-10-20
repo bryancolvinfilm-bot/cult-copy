@@ -186,7 +186,11 @@ jobs:
       # Checkout's Node runtime needs libstdc++/glibc; install Git and the build
       # libraries in the target distro before executing any JavaScript actions.
       - name: Bootstrap distro tools
-        run: dnf -y install git tar gzip curl ca-certificates libstdc++
+        run: |
+          if ! dnf -y --refresh install git tar gzip curl ca-certificates libstdc++; then
+            dnf clean metadata
+            dnf -y --refresh install git tar gzip curl ca-certificates libstdc++
+          fi
       - uses: actions/checkout@v4
       - name: Distro build dependencies
         run: sh scripts/linux-distro-deps.sh '${{ matrix.distro }}'
