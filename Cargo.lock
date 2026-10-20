@@ -739,12 +739,13 @@ dependencies = [
 
 [[package]]
 name = "cult-copy"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "anyhow",
  "bincode",
  "blake3",
  "clipboard-rs",
+ "clipboard-win",
  "directories",
  "eframe",
  "embed-resource",

@@ -73,6 +73,7 @@ fn run() -> Result<()> {
         .build()?;
     let handle = engine::start(config, dir.clone(), &runtime);
     cult_copy::instance::listen(&dir, handle.clone(), &runtime)?;
+    let shutdown = handle.clone();
     let options = eframe::NativeOptions {
         viewport: eframe::egui::ViewportBuilder::default()
             .with_title("Cult Copy")
@@ -89,19 +90,22 @@ fn run() -> Result<()> {
         ..Default::default()
     };
     #[cfg(target_os = "linux")]
-    cult_copy::window::run_linux(
+    let window_result = cult_copy::window::run_linux(
         handle,
         options,
         args.iter().any(|arg| arg == "--background"),
-    )?;
+    );
     #[cfg(not(target_os = "linux"))]
-    eframe::run_native(
+    let window_result = eframe::run_native(
         "Cult Copy",
         options,
         Box::new(move |cc| Ok(Box::new(ui::App::new(cc, handle)))),
     )
-    .map_err(|error| anyhow::anyhow!("Cannot open app window: {error}"))?;
-    drop(runtime);
+    .map_err(|error| anyhow::anyhow!("Cannot open app window: {error}"));
+    shutdown.shutdown();
+    // Dropping a runtime waits indefinitely for blocking file I/O. Give active
+    // work a bounded cleanup window so tray Quit always lets the app restart.
+    runtime.shutdown_timeout(std::time::Duration::from_secs(2));
     drop(lock);
-    Ok(())
+    window_result
 }

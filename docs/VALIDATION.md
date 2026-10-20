@@ -1,5 +1,54 @@
 # Validation
 
+## Version 0.1.7: file clipboard, crossed connections, and shutdown
+
+Capture recognizes explicit URI-list and GNOME/Nautilus file selections before
+falling back to URL text, including on Windows when no `CF_HDROP` is offered.
+Linux also accepts GNOME file selections without `text/uri-list`. Received
+Linux files publish URI, GNOME/Nautilus, and KDE file formats without a plain-text
+path fallback. Deliberately copied file URL text remains text. Native tests check
+the offered targets independently, capture file selections with companion URL
+text, and verify the resulting transfer has the `Files` kind and no text preview
+for the Clipboard tab. The capture regression is enabled on Windows and Linux;
+only its Linux execution has been verified locally. A file URL captured as plain
+text records the advertised format names in the app log without logging paths
+or clipboard content.
+
+Windows captures compare clipboard sequence numbers before and after reading,
+retrying a changed clipboard or temporary access failure six times with 25 ms
+between attempts. A final native file-format check prevents a newly available
+file selection from being committed as URL text. Capture also supports the
+Shell's `FileNameW` format before falling back to text. Unit regressions cover
+changes during a read, clipboard contention, bounded retries, Unicode file names,
+and deliberately copied URL text. Native Windows tests add text-first
+`CF_HDROP`, a competing `OpenClipboard` holder, and a `FileNameW`-only selection;
+each must yield a `Files` transfer with no URL text preview.
+
+Simultaneous encrypted connections now use a shared handshake-derived session
+ID to select the same socket at both ends. A loopback regression delivers the
+connections in opposite orders, pairs the peers, and verifies the received file
+bytes. Obsolete session messages and disconnects cannot affect the chosen peer.
+
+Synchronous clipboard and filesystem operations run on a dedicated engine
+thread. Quit requests history/transfer cleanup, waits up to one second for the
+engine, and allows up to two seconds for blocking runtime work. A regression
+holds a clipboard read and blocking I/O open while verifying that network work
+can still execute and shutdown returns within its deadline.
+
+Local checks passed: 40 unit tests, three upgrade tests, strict all-feature
+Linux and Windows-target Clippy, formatting, shell/Python syntax, and the native
+clipboard test on a private X11 display. X11 and native Wayland window lifecycle tests passed for
+normal/background startup. They also invoke Quit through the exported D-Bus
+tray menu and relaunch the same profile to verify process exit and lock release.
+The test Weston compositor lacks data-control support, so clipboard tests use
+X11; this does not validate native Wayland clipboard support or physical
+Windows/macOS paste targets. All Windows targets and features, including native
+test code, passed cross-target compilation with actual Windows C/resource
+dependencies compiled by Zig. Native Windows clipboard execution runs on the
+disposable CI desktops before publication. Physical Windows-to-Mac copying
+remains a separate device check; see the release's BUILD-INFO.json for native
+build results and the exact tested source commit.
+
 ## Version 0.1.6: Cult Copy and existing-install upgrades
 
 The Cargo project, application title, tray tooltip, notifications, installers,

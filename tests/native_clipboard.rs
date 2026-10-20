@@ -5,6 +5,40 @@ use cult_copy::{
     model::{Kind, TextPayload},
 };
 
+fn assert_file_capture(
+    clipboard: &SystemClipboard,
+    paths: &[std::path::PathBuf],
+    root: &std::path::Path,
+) {
+    let captured = clipboard
+        .snapshot()
+        .unwrap()
+        .content
+        .expect("Missing copied files");
+    match &captured {
+        Captured::Files(actual) => assert_eq!(actual, paths),
+        other => panic!("Expected files, captured {other:?}"),
+    }
+    let outgoing = cult_copy::storage::prepare(
+        captured,
+        cult_copy::model::Version {
+            counter: 1,
+            origin: "a".repeat(64),
+        },
+        root,
+    )
+    .unwrap();
+    assert_eq!(
+        outgoing.offer.kind,
+        Kind::Files,
+        "The clipboard tab must show FILE"
+    );
+    assert!(
+        outgoing.preview.is_none(),
+        "Files must not have URL text previews"
+    );
+}
+
 #[test]
 #[ignore = "changes the real clipboard; run on a disposable desktop session"]
 fn native_text_image_file_and_folder_clipboards_round_trip() {
@@ -90,8 +124,112 @@ fn native_text_image_file_and_folder_clipboards_round_trip() {
     clipboard
         .apply(&Kind::Files, &paths, uuid::Uuid::new_v4())
         .unwrap();
-    match clipboard.snapshot().unwrap().content {
-        Some(Captured::Files(actual)) => assert_eq!(actual, paths),
-        _ => panic!("Missing native file clipboard"),
+    assert_file_capture(&clipboard, &paths, &dir.path().join("captured"));
+    #[cfg(target_os = "windows")]
+    {
+        use clipboard_rs::{Clipboard, ClipboardContent, ClipboardContext};
+        let context = ClipboardContext::new().unwrap();
+        let url_text = paths
+            .iter()
+            .map(|path| url::Url::from_file_path(path).unwrap().to_string())
+            .collect::<Vec<_>>()
+            .join("\n");
+        // Explorer-style CF_HDROP must take precedence even when URL text was
+        // published first. Verify the transfer metadata used by the UI as well.
+        context
+            .set(vec![
+                ClipboardContent::Text(url_text.clone()),
+                ClipboardContent::Files(
+                    paths
+                        .iter()
+                        .map(|path| path.to_str().unwrap().to_owned())
+                        .collect(),
+                ),
+            ])
+            .unwrap();
+        assert_file_capture(&clipboard, &paths, &dir.path().join("captured"));
+
+        // Another clipboard reader can hold OpenClipboard after the copy event.
+        // The old immediate read failed here and never retried that file copy.
+        let (locked, ready) = std::sync::mpsc::channel();
+        let holder = std::thread::spawn(move || {
+            let _clipboard = clipboard_win::Clipboard::new_attempts(10).unwrap();
+            locked.send(()).unwrap();
+            std::thread::sleep(std::time::Duration::from_millis(60));
+        });
+        ready
+            .recv_timeout(std::time::Duration::from_secs(2))
+            .unwrap();
+        assert_file_capture(&clipboard, &paths, &dir.path().join("captured"));
+        holder.join().unwrap();
+
+        // Some shell sources expose only the legacy Unicode file-name format.
+        let filename = paths[0]
+            .to_str()
+            .unwrap()
+            .encode_utf16()
+            .chain([0])
+            .flat_map(u16::to_le_bytes)
+            .collect();
+        context
+            .set(vec![
+                ClipboardContent::Text(url_text),
+                ClipboardContent::Other("FileNameW".into(), filename),
+            ])
+            .unwrap();
+        assert_file_capture(&clipboard, &paths[..1], &dir.path().join("captured"));
+        // Restore a file-only clipboard for the independent format checks below.
+        clipboard
+            .apply(&Kind::Files, &paths, uuid::Uuid::new_v4())
+            .unwrap();
+    }
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
+    {
+        use clipboard_rs::{Clipboard, ClipboardContent, ClipboardContext, ContentFormat};
+        let context = ClipboardContext::new().unwrap();
+        let uris = paths
+            .iter()
+            .map(|path| url::Url::from_file_path(path).unwrap().to_string())
+            .collect::<Vec<_>>();
+        // Check what independent paste targets receive, not just our own decoder.
+        #[cfg(target_os = "linux")]
+        assert_eq!(
+            context.get_buffer("text/uri-list").unwrap(),
+            format!("{}\r\n", uris.join("\r\n")).as_bytes()
+        );
+        assert!(
+            !context.has(ContentFormat::Text),
+            "File copies must not degrade into URL text"
+        );
+        for format in [
+            "text/uri-list",
+            "x-special/gnome-copied-files",
+            "x-special/nautilus-clipboard",
+        ] {
+            // A file selection can carry a typed URI list plus plain URL text
+            // without the backend's preferred native file type (e.g. CF_HDROP).
+            let bytes = if format == "text/uri-list" {
+                uris.join("\r\n")
+            } else {
+                format!("copy\n{}", uris.join("\n"))
+            };
+            context
+                .set(vec![
+                    ClipboardContent::Other(format.into(), bytes.into_bytes()),
+                    ClipboardContent::Text(uris.join("\n")),
+                ])
+                .unwrap();
+            assert_file_capture(&clipboard, &paths, &dir.path().join("captured"));
+        }
+        context
+            .set_text("file:///tmp/a-deliberately-copied-url".into())
+            .unwrap();
+        assert!(
+            matches!(
+                clipboard.snapshot().unwrap().content,
+                Some(Captured::Text(_))
+            ),
+            "Ordinary URL text must stay text"
+        );
     }
 }

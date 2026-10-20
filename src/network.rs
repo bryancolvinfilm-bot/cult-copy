@@ -211,7 +211,7 @@ pub(crate) async fn connection(
         );
     }
     let id = secure.peer_id;
-    let session = Uuid::new_v4();
+    let session = secure.session;
     let (control, mut receiver) = mpsc::channel::<Message>(64);
     let (bulk, mut bulk_receiver) = mpsc::channel::<Message>(4);
     control

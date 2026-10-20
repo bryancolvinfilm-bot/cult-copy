@@ -20,6 +20,8 @@ fi
 cat > release-notes.md <<EOF
 Independent, third-party open-source clipboard sharing on a local network. Not affiliated with, endorsed by, or maintained by Duet Display.
 
+This update fixes file selections being captured as URL text, retries busy or changing Windows clipboards, resolves simultaneous peer connection races, and prevents blocked clipboard or file work from hanging tray Quit. Linux file selections retain their file-manager formats. Update the paired computers to test the fixes together.
+
 Cult Copy continues the same app with its original icon, device identity, pairings, settings, and history. Compatibility IDs are unchanged. When upgrading on Mac from the previous app name, quit it and use the PKG installer so the old app bundle is replaced by Cult Copy.app. New installs can use the DMG.
 
 | Platform | Processor | Downloads |

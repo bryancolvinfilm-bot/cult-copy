@@ -1,6 +1,6 @@
 [package]
 name = "cult-copy"
-version = "0.1.6"
+version = "0.1.7"
 edition = "2021"
 rust-version = "1.90"
 description = "A private, peer-to-peer clipboard for your computers"
@@ -46,6 +46,7 @@ objc2-foundation = { version = "0.3.2", features = ["NSArray", "NSString"] }
 objc2-app-kit = { version = "0.3.2", features = ["NSPasteboard", "NSPasteboardItem"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
+clipboard-win = "5.4"
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"], optional = true }
 
 [target.'cfg(not(target_os = "linux"))'.dependencies]

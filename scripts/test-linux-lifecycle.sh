@@ -55,3 +55,7 @@ assert report['background'] == (sys.argv[3] == 'background'), report
 print(f"{sys.argv[2]} {sys.argv[3]}: close/reopen, hidden sync/tray updates, instance activation, disabled version, and tray Quit passed.")
 PY
 done
+# Calling the exported menu catches failures hidden by invoking our handler
+# directly, and restarting the same profile checks that the instance lock clears.
+timeout 45s dbus-run-session -- xvfb-run -a env LIBGL_ALWAYS_SOFTWARE=1 \
+    python3 scripts/test-linux-tray.py "$task_binary" "$task_tmp/profile-tray"

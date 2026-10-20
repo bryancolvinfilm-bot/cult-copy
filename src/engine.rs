@@ -49,6 +49,7 @@ pub enum Command {
     SetAutostart(bool),
     ClearHistory,
     DismissNotice(String),
+    Shutdown(std::sync::mpsc::Sender<()>),
     Tick,
 }
 
@@ -106,6 +107,15 @@ impl Handle {
     }
     pub fn set_notifier(&self, callback: Notify) {
         *self.notifier.lock().unwrap() = Some(callback);
+    }
+    pub fn shutdown(&self) {
+        *self.notifier.lock().unwrap() = None;
+        *self.notification_sender.lock().unwrap() = None;
+        let (done, stopped) = std::sync::mpsc::channel();
+        self.send(Command::Shutdown(done));
+        // A clipboard owner or a source on a disconnected mount may never
+        // answer. Quitting must still release the app's process and instance lock.
+        let _ = stopped.recv_timeout(Duration::from_secs(1));
     }
     pub fn set_notification_sender(
         &self,
@@ -217,11 +227,12 @@ fn create_engine(config: Config, dir: PathBuf) -> (Engine, Handle, mpsc::Receive
 pub fn start(config: Config, dir: PathBuf, runtime: &tokio::runtime::Runtime) -> Handle {
     let (engine, handle, rx) = create_engine(config.clone(), dir);
     let bus = handle.bus.clone();
-    runtime.spawn(engine.run(rx));
+    spawn_engine(engine, rx, runtime.handle().clone());
     let network_bus = bus.clone();
     #[cfg(feature = "ui-test")]
     let diagnostics = std::env::var_os("CULT_COPY_LIFECYCLE_TEST_TO").is_some()
-        || std::env::var_os("CULT_COPY_SCREENSHOT_TO").is_some();
+        || std::env::var_os("CULT_COPY_SCREENSHOT_TO").is_some()
+        || std::env::var_os("CULT_COPY_TRAY_TEST").is_some();
     #[cfg(not(feature = "ui-test"))]
     let diagnostics = false;
     runtime.spawn(async move {
@@ -244,6 +255,19 @@ pub fn start(config: Config, dir: PathBuf, runtime: &tokio::runtime::Runtime) ->
         }
     });
     handle
+}
+
+fn spawn_engine(
+    engine: Engine,
+    rx: mpsc::Receiver<Command>,
+    runtime: tokio::runtime::Handle,
+) -> std::thread::JoinHandle<()> {
+    // Native clipboard reads and local filesystem work are synchronous. Keep
+    // them off Tokio's network workers, including during runtime shutdown.
+    std::thread::Builder::new()
+        .name("clipboard-engine".into())
+        .spawn(move || runtime.block_on(engine.run(rx)))
+        .expect("Could not start the clipboard engine")
 }
 
 impl Engine {
@@ -269,6 +293,15 @@ impl Engine {
         }
         self.publish(false);
         while let Some(command) = rx.recv().await {
+            if let Command::Shutdown(done) = command {
+                self.save_history();
+                for cancel in self.sending.values() {
+                    cancel.store(true, Ordering::Relaxed);
+                }
+                drop(self);
+                let _ = done.send(());
+                return;
+            }
             let is_chunk = matches!(
                 &command,
                 Command::Network(Event::Message {
@@ -513,6 +546,7 @@ impl Engine {
                 self.connection_notices
                     .retain(|_, (notice, _)| notice != &message);
             }
+            Command::Shutdown(_) => unreachable!("shutdown is handled by the engine loop"),
             Command::Tick => {
                 let expired: Vec<_> = self
                     .connection_notices
@@ -655,8 +689,14 @@ impl Engine {
                 if let Some((_, address)) = self.discovered.get(&id) {
                     self.clear_connection_notice(&address.clone());
                 }
-                if self.peers.contains_key(&id) {
-                    return Ok(());
+                // Both ends must retain the same encrypted socket when two
+                // connection attempts cross. Arrival order differs per computer;
+                // the handshake-derived session ID is identical at both ends.
+                if let Some(peer) = self.peers.get(&id) {
+                    if peer.session <= session {
+                        return Ok(());
+                    }
+                    self.disconnect_transfers(&id);
                 }
                 let trusted = self.config.trusted.contains_key(&key);
                 let name = self

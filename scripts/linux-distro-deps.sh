@@ -21,4 +21,4 @@ dnf -y install gcc gcc-c++ make pkgconf-pkg-config git curl ca-certificates \
     tar gzip diffutils findutils which rpm-build desktop-file-utils \
     hicolor-icon-theme libX11-devel libXi-devel libXrandr-devel libXcursor-devel \
     libXinerama-devel mesa-libEGL-devel mesa-libGL-devel mesa-dri-drivers wayland-devel \
-    libxkbcommon-devel xorg-x11-server-Xvfb xorg-x11-xauth dbus-daemon python3
+    libxkbcommon-devel xorg-x11-server-Xvfb xorg-x11-xauth dbus-daemon glib2 python3

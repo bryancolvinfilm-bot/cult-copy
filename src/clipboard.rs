@@ -9,6 +9,9 @@ use std::path::{Path, PathBuf};
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
+#[cfg(any(target_os = "windows", test))]
+mod windows;
+
 #[cfg(target_os = "macos")]
 pub const MARKER: &str = "io.duetclipboard.clipboard-event";
 #[cfg(not(target_os = "macos"))]
@@ -132,6 +135,13 @@ impl SystemClipboard {
     }
 
     pub fn snapshot(&self) -> Result<Snapshot> {
+        #[cfg(target_os = "windows")]
+        return windows::snapshot(self);
+        #[cfg(not(target_os = "windows"))]
+        self.snapshot_once()
+    }
+
+    fn snapshot_once(&self) -> Result<Snapshot> {
         let formats = self
             .context
             .available_formats()
@@ -146,11 +156,16 @@ impl SystemClipboard {
                 ignored: true,
             });
         }
-        let marker = self
-            .context
-            .get_buffer(MARKER)
-            .ok()
-            .and_then(|data| Uuid::from_slice(&data).ok());
+        let marker = formats
+            .iter()
+            .any(|format| format == MARKER)
+            .then(|| {
+                self.context
+                    .get_buffer(MARKER)
+                    .ok()
+                    .and_then(|data| Uuid::from_slice(&data).ok())
+            })
+            .flatten();
         // Respect the common Windows, Apple, and KDE sensitive-content conventions.
         let sensitive = formats.iter().any(|s| {
             matches!(
@@ -160,11 +175,14 @@ impl SystemClipboard {
                     | "org.nspasteboard.TransientType"
             )
         });
-        let kde_sensitive = self
-            .context
-            .get_buffer("x-kde-passwordManagerHint")
-            .ok()
-            .is_some_and(|data| data == b"secret");
+        let kde_sensitive = formats
+            .iter()
+            .any(|format| format == "x-kde-passwordManagerHint")
+            && self
+                .context
+                .get_buffer("x-kde-passwordManagerHint")
+                .ok()
+                .is_some_and(|data| data == b"secret");
         if sensitive || kde_sensitive {
             return Ok(Snapshot {
                 content: None,
@@ -172,7 +190,23 @@ impl SystemClipboard {
                 ignored: false,
             });
         }
-        let content = if self.context.has(ContentFormat::Files) {
+        let uri_files = || {
+            FILE_LIST_FORMATS
+                .iter()
+                .find(|format| formats.iter().any(|offered| offered == **format))
+                .map(|format| {
+                    let bytes = self
+                        .context
+                        .get_buffer(format)
+                        .map_err(|e| anyhow::anyhow!("Cannot read copied files: {e}"))?;
+                    file_list_paths(format, &bytes)
+                })
+                .transpose()
+        };
+        #[cfg(target_os = "linux")]
+        let files = uri_files()?;
+        #[cfg(not(target_os = "linux"))]
+        let files = if self.context.has(ContentFormat::Files) {
             let files = self
                 .context
                 .get_files()
@@ -189,6 +223,29 @@ impl SystemClipboard {
                     }
                 })
                 .collect::<Result<Vec<_>>>()?;
+            Some(paths)
+        } else {
+            #[cfg(target_os = "windows")]
+            let filename = if formats.iter().any(|format| format == "FileNameW") {
+                let bytes = self
+                    .context
+                    .get_buffer("FileNameW")
+                    .map_err(|e| anyhow::anyhow!("Cannot read copied file: {e}"))?;
+                let path = windows::filename(&bytes)?;
+                ensure!(path.is_absolute(), "Invalid copied file path");
+                Some(vec![path])
+            } else {
+                None
+            };
+            #[cfg(not(target_os = "windows"))]
+            let filename: Option<Vec<PathBuf>> = None;
+            if filename.is_some() {
+                filename
+            } else {
+                uri_files()?
+            }
+        };
+        let content = if let Some(paths) = files {
             (!paths.is_empty()).then_some(Captured::Files(paths))
         } else if self.context.has(ContentFormat::Image) {
             let image = self
@@ -215,6 +272,12 @@ impl SystemClipboard {
                 .context
                 .get_text()
                 .map_err(|e| anyhow::anyhow!("Cannot read text: {e}"))?;
+            if text.trim_start().starts_with("file:") {
+                // Diagnose lost file formats without logging clipboard paths or
+                // contents. Plain URL text alone must not authorize file uploads.
+                tracing::warn!(formats = ?formats,
+                    "Clipboard contains file URL text without a supported file selection");
+            }
             let html = self.context.get_html().ok().filter(|s| !s.is_empty());
             let rtf = self.context.get_rich_text().ok().filter(|s| !s.is_empty());
             ensure!(
@@ -277,39 +340,15 @@ impl SystemClipboard {
                 )]
             }
             Kind::Files => {
-                #[cfg(any(target_os = "windows", target_os = "macos"))]
-                let files = paths
-                    .iter()
-                    .map(|path| path.to_string_lossy().into_owned())
-                    .collect();
                 #[cfg(target_os = "linux")]
-                let files = paths
-                    .iter()
-                    .map(|path| {
-                        url::Url::from_file_path(path)
-                            .map(|u| u.to_string())
-                            .map_err(|_| anyhow::anyhow!("Invalid local file path"))
-                    })
-                    .collect::<Result<Vec<_>>>()?;
-                #[cfg(target_os = "linux")]
-                let extras = {
-                    let copied = format!("copy\n{}", files.join("\n")).into_bytes();
-                    vec![
-                        ClipboardContent::Other(
-                            "x-special/gnome-copied-files".into(),
-                            copied.clone(),
-                        ),
-                        ClipboardContent::Other("x-special/nautilus-clipboard".into(), copied),
-                        ClipboardContent::Other(
-                            "application/x-kde-cutselection".into(),
-                            b"0".to_vec(),
-                        ),
-                    ]
-                };
+                let values = linux_file_contents(paths)?;
                 #[cfg(not(target_os = "linux"))]
-                let extras: Vec<ClipboardContent> = Vec::new();
-                let mut values = vec![ClipboardContent::Files(files)];
-                values.extend(extras);
+                let values = vec![ClipboardContent::Files(
+                    paths
+                        .iter()
+                        .map(|path| path.to_string_lossy().into_owned())
+                        .collect(),
+                )];
                 values
             }
         };
@@ -325,6 +364,67 @@ impl SystemClipboard {
             .map_err(|e| anyhow::anyhow!("Cannot update clipboard: {e}"))?;
         Ok(())
     }
+}
+
+const FILE_LIST_FORMATS: [&str; 3] = [
+    "text/uri-list",
+    "x-special/gnome-copied-files",
+    "x-special/nautilus-clipboard",
+];
+
+fn file_list_paths(format: &str, bytes: &[u8]) -> Result<Vec<PathBuf>> {
+    ensure!(
+        bytes.len() as u64 <= MAX_INLINE,
+        "File selection is too large"
+    );
+    let mut lines = std::str::from_utf8(bytes)?.trim_end_matches('\0').lines();
+    if format != "text/uri-list" {
+        let mut action = lines.next();
+        if action == Some("x-special/nautilus-clipboard") {
+            action = lines.next();
+        }
+        ensure!(
+            matches!(action, Some("copy" | "cut")),
+            "Invalid file clipboard action"
+        );
+    }
+    let paths = lines
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+        .map(|line| {
+            url::Url::parse(line)?
+                .to_file_path()
+                .map_err(|_| anyhow::anyhow!("Invalid local file URL"))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    ensure!(
+        paths.len() <= crate::model::MAX_PARTS,
+        "Too many copied files"
+    );
+    Ok(paths)
+}
+
+#[cfg(target_os = "linux")]
+fn linux_file_contents(paths: &[PathBuf]) -> Result<Vec<ClipboardContent>> {
+    let files = paths
+        .iter()
+        .map(|path| {
+            url::Url::from_file_path(path)
+                .map(|url| url.to_string())
+                .map_err(|_| anyhow::anyhow!("Invalid local file path"))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let copied = format!("copy\n{}", files.join("\n")).into_bytes();
+    // The X11 Files adapter also advertises plain text paths. Some paste targets
+    // choose that text instead of attaching the files. Publish file formats only.
+    Ok(vec![
+        ClipboardContent::Other(
+            "text/uri-list".into(),
+            format!("{}\r\n", files.join("\r\n")).into_bytes(),
+        ),
+        ClipboardContent::Other("x-special/gnome-copied-files".into(), copied.clone()),
+        ClipboardContent::Other("x-special/nautilus-clipboard".into(), copied),
+        ClipboardContent::Other("application/x-kde-cutselection".into(), b"0".to_vec()),
+    ])
 }
 
 #[cfg(target_os = "macos")]
@@ -434,6 +534,52 @@ pub fn check_image(path: &Path) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn linux_file_formats_preserve_paths_and_do_not_publish_url_text() {
+        let paths = vec![
+            PathBuf::from("/tmp/café #1.txt"),
+            PathBuf::from("/tmp/a\nb.txt"),
+        ];
+        let contents = linux_file_contents(&paths).unwrap();
+        for format in FILE_LIST_FORMATS {
+            let bytes = contents
+                .iter()
+                .find_map(|content| match content {
+                    ClipboardContent::Other(name, bytes) if name == format => Some(bytes),
+                    _ => None,
+                })
+                .unwrap();
+            assert_eq!(file_list_paths(format, bytes).unwrap(), paths);
+        }
+        assert!(contents.iter().all(|content| matches!(content,
+            ClipboardContent::Other(format, _) if !format.starts_with("text/plain"))));
+        assert_eq!(
+            file_list_paths(
+                "x-special/nautilus-clipboard",
+                b"x-special/nautilus-clipboard\ncut\nfile:///tmp/a%20b\n"
+            )
+            .unwrap(),
+            vec![PathBuf::from("/tmp/a b")]
+        );
+        assert_eq!(
+            file_list_paths("text/uri-list", b"# comment\r\nfile:///tmp/a\r\n").unwrap(),
+            vec![PathBuf::from("/tmp/a")]
+        );
+        assert_eq!(
+            file_list_paths("text/uri-list", b"file:///tmp/a\r\n\0\0").unwrap(),
+            vec![PathBuf::from("/tmp/a")]
+        );
+        for bytes in [
+            b"https://example.com/file".as_slice(),
+            b"file://other-computer/tmp/a",
+            b"/tmp/a",
+        ] {
+            assert!(file_list_paths("text/uri-list", bytes).is_err());
+        }
+        assert!(file_list_paths("x-special/gnome-copied-files", b"file:///tmp/a").is_err());
+    }
 
     #[test]
     fn copying_a_folder_again_detects_changes_to_nested_files() {

@@ -3,6 +3,116 @@ use crate::{clipboard::Snapshot, model::TextPayload};
 use std::sync::atomic::AtomicUsize;
 
 #[tokio::test]
+async fn crossing_connections_choose_the_same_session_in_opposite_arrival_orders() {
+    let dir = tempfile::tempdir().unwrap();
+    let config = Config::load(dir.path()).unwrap();
+    let low = Uuid::from_u128(1);
+    let high = Uuid::from_u128(2);
+    for order in [[low, high], [high, low]] {
+        let (mut engine, _, _rx) = create_engine(config.clone(), dir.path().to_owned());
+        // Keep the chosen channel alive just as a real socket writer would.
+        let mut receivers = Vec::new();
+        for session in order {
+            let (control, messages) = mpsc::channel(32);
+            let (bulk, chunks) = mpsc::channel(4);
+            receivers.push((messages, chunks));
+            engine
+                .network(Event::Connected {
+                    id: "peer".into(),
+                    key: "peer-key".into(),
+                    code: session.to_string(),
+                    session,
+                    sender: PeerTx { control, bulk },
+                })
+                .unwrap();
+        }
+        assert_eq!(engine.peers["peer"].session, low);
+        assert_eq!(engine.peers["peer"].code, low.to_string());
+        engine
+            .network(Event::Disconnected {
+                id: "peer".into(),
+                session: high,
+            })
+            .unwrap();
+        assert_eq!(engine.peers["peer"].session, low);
+        engine
+            .network(Event::Message {
+                id: "peer".into(),
+                session: high,
+                message: Message::Trust,
+            })
+            .unwrap();
+        assert!(!engine.peers["peer"].remote_trust);
+        engine
+            .network(Event::Message {
+                id: "peer".into(),
+                session: low,
+                message: Message::Trust,
+            })
+            .unwrap();
+        assert!(engine.peers["peer"].remote_trust);
+    }
+}
+
+#[test]
+fn blocked_clipboard_does_not_starve_network_or_prevent_bounded_shutdown() {
+    struct BlockedClipboard {
+        started: std::sync::mpsc::Sender<()>,
+        release: Mutex<std::sync::mpsc::Receiver<()>>,
+    }
+    impl ClipboardAccess for BlockedClipboard {
+        fn snapshot(&self) -> Result<Snapshot> {
+            self.started.send(()).unwrap();
+            self.release.lock().unwrap().recv().unwrap();
+            Ok(Snapshot {
+                content: None,
+                marker: None,
+                ignored: false,
+            })
+        }
+        fn apply(&self, _: &Kind, _: &[PathBuf], _: Uuid) -> Result<()> {
+            unreachable!()
+        }
+    }
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(1)
+        .enable_all()
+        .build()
+        .unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let config = Config::load(dir.path()).unwrap();
+    let (mut engine, handle, receiver) = create_engine(config, dir.path().to_owned());
+    let (started, waiting) = std::sync::mpsc::channel();
+    let (release, blocked) = std::sync::mpsc::channel();
+    engine.clipboard = Some(Box::new(BlockedClipboard {
+        started,
+        release: Mutex::new(blocked),
+    }));
+    let worker = spawn_engine(engine, receiver, runtime.handle().clone());
+    handle.send(Command::ClipboardChanged);
+    waiting.recv_timeout(Duration::from_secs(2)).unwrap();
+    let (ping, pong) = std::sync::mpsc::channel();
+    runtime.spawn(async move {
+        ping.send(()).unwrap();
+    });
+    pong.recv_timeout(Duration::from_secs(1))
+        .expect("Native clipboard blocked the network executor");
+    let (io_release, io_wait) = std::sync::mpsc::channel();
+    let pending_io = runtime.spawn_blocking(move || io_wait.recv().unwrap());
+    let before = Instant::now();
+    handle.shutdown();
+    runtime.shutdown_timeout(Duration::from_millis(100));
+    assert!(
+        before.elapsed() < Duration::from_secs(2),
+        "Quit waited for an unresponsive clipboard owner"
+    );
+    release.send(()).unwrap();
+    io_release.send(()).unwrap();
+    drop(pending_io);
+    worker.join().unwrap();
+}
+
+#[tokio::test]
 async fn discovery_expires_old_instances_without_merging_different_identities() {
     let dir = tempfile::tempdir().unwrap();
     let config = Config::load(dir.path()).unwrap();
@@ -303,6 +413,91 @@ async fn trust(a: &Computer, b: &Computer) {
     b.handle.send(Command::Trust(a.config.id()));
     wait_for(&a.handle, |v| v.peers.iter().any(|p| p.ready)).await;
     wait_for(&b.handle, |v| v.peers.iter().any(|p| p.ready)).await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn crossed_encrypted_connections_still_pair_and_deliver_actual_file_bytes() {
+    fn reorder(bus: Bus, reverse: bool) -> Bus {
+        let (proxy, mut events) = mpsc::channel(256);
+        tokio::spawn(async move {
+            let mut connections = Vec::new();
+            let mut pending = Vec::new();
+            while connections.len() < 2 {
+                let event = events.recv().await.unwrap();
+                if matches!(event, Command::Network(Event::Connected { .. })) {
+                    connections.push(event);
+                } else {
+                    pending.push(event);
+                }
+            }
+            connections.sort_by_key(|event| match event {
+                Command::Network(Event::Connected { session, .. }) => *session,
+                _ => unreachable!(),
+            });
+            if reverse {
+                connections.reverse();
+            }
+            for event in connections.into_iter().chain(pending) {
+                bus.send(event).await.unwrap();
+            }
+            while let Some(event) = events.recv().await {
+                if bus.send(event).await.is_err() {
+                    break;
+                }
+            }
+        });
+        proxy
+    }
+    let a = Computer::new(false, crate::model::DEFAULT_LIMIT);
+    let b = Computer::new(false, crate::model::DEFAULT_LIMIT);
+    let a_bus = reorder(a.handle.bus.clone(), false);
+    let b_bus = reorder(b.handle.bus.clone(), true);
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    for initiator in [true, false] {
+        let stream_a = tokio::net::TcpStream::connect(listener.local_addr().unwrap())
+            .await
+            .unwrap();
+        let stream_b = listener.accept().await.unwrap().0;
+        for (stream, computer, starts, bus) in [
+            (stream_a, &a, initiator, a_bus.clone()),
+            (stream_b, &b, !initiator, b_bus.clone()),
+        ] {
+            let config = computer.config.clone();
+            tokio::spawn(network::connection(stream, config, starts, None, bus));
+        }
+    }
+    wait_for(&a.handle, |v| {
+        v.peers
+            .iter()
+            .any(|p| p.connected && p.name == b.config.name)
+    })
+    .await;
+    wait_for(&b.handle, |v| {
+        v.peers
+            .iter()
+            .any(|p| p.connected && p.name == a.config.name)
+    })
+    .await;
+    assert_eq!(
+        a.handle.view.lock().unwrap().peers[0].code,
+        b.handle.view.lock().unwrap().peers[0].code
+    );
+    trust(&a, &b).await;
+    let source = a.dir.path().join("actual file café.txt");
+    let bytes = vec![0x5a; 100_000];
+    std::fs::write(&source, &bytes).unwrap();
+    a.copy(Captured::Files(vec![source]));
+    wait_for(&b.handle, |v| {
+        v.history
+            .iter()
+            .any(|item| item.status == Status::Ready && item.applied)
+    })
+    .await;
+    let received = match &b.memory.lock().unwrap().content {
+        Some(Captured::Files(paths)) => paths[0].clone(),
+        other => panic!("Expected a received file, got {other:?}"),
+    };
+    assert_eq!(std::fs::read(received).unwrap(), bytes);
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

@@ -52,6 +52,7 @@ pub fn noise_params() -> NoiseParams {
 }
 
 pub struct SecureSession {
+    pub session: Uuid,
     pub peer_key: String,
     pub peer_id: String,
     pub code: String,
@@ -95,11 +96,12 @@ pub async fn handshake(
     ensure!(peer_id != config.id(), "This is the same device");
     // Both screens derive the same verification code from the entire handshake,
     // binding the comparison to this session and both permanent identities.
-    let digest = blake3::hash(noise.get_handshake_hash())
-        .to_hex()
-        .to_string();
+    let hash = blake3::hash(noise.get_handshake_hash());
+    let session = Uuid::from_slice(&hash.as_bytes()[..16])?;
+    let digest = hash.to_hex().to_string();
     let code = format!("{} {} {}", &digest[..4], &digest[4..8], &digest[8..12]);
     Ok(SecureSession {
+        session,
         peer_key,
         peer_id,
         code,
@@ -177,6 +179,7 @@ mod tests {
         assert_eq!(left.peer_key, b.public_key);
         assert_eq!(right.peer_key, a.public_key);
         assert_eq!(left.code, right.code);
+        assert_eq!(left.session, right.session);
         let mut frame = encrypt(
             &left.cipher,
             &Message::Hello {
