@@ -1,14 +1,16 @@
 %global debug_package %{nil}
 %global _build_id_links none
 
-# Stable installed package identity: DNF upgrades the existing app in place.
-Name:           duet-clipboard
+# Replace the earlier package while exposing the canonical Cult Copy name.
+Name:           cult-copy
 Version:        %{app_version}
 Release:        1%{?dist}
 Summary:        Private clipboard sharing between paired computers
 License:        MIT
 URL:            https://github.com/bryancolvinfilm-bot/cult-copy
 Source0:        %{name}-%{version}.tar.gz
+Provides:       duet-clipboard = %{version}-%{release}
+Obsoletes:      duet-clipboard < %{version}-%{release}
 BuildRequires:  desktop-file-utils
 Requires:       hicolor-icon-theme
 # The window and clipboard backends load these libraries at runtime, so RPM's
@@ -28,19 +30,20 @@ Requires:       libGL.so.1()(64bit)
 %description
 An independent, open-source tray app for sharing text, images, files, and
 folders with paired computers on a local network. No cloud service or account
-is required. This project is not affiliated with Duet Display.
+is required.
 
 %prep
 %setup -q
 
 %install
-install -Dpm 755 duet-clipboard %{buildroot}%{_bindir}/duet-clipboard
-desktop-file-install --dir=%{buildroot}%{_datadir}/applications duet-clipboard.desktop
-install -Dpm 644 duet-clipboard.svg %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/duet-clipboard.svg
-install -Dpm 644 duet-clipboard.png %{buildroot}%{_datadir}/icons/hicolor/256x256/apps/duet-clipboard.png
+install -Dpm 755 cult-copy %{buildroot}%{_bindir}/cult-copy
+desktop-file-install --dir=%{buildroot}%{_datadir}/applications cult-copy.desktop
+install -Dpm 644 cult-copy.svg %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/cult-copy.svg
+install -Dpm 644 cult-copy.png %{buildroot}%{_datadir}/icons/hicolor/256x256/apps/cult-copy.png
+install -Dpm 644 io.github.bryancolvinfilm_bot.CultCopy.metainfo.xml %{buildroot}%{_datadir}/metainfo/io.github.bryancolvinfilm_bot.CultCopy.metainfo.xml
 
 %check
-desktop-file-validate %{buildroot}%{_datadir}/applications/duet-clipboard.desktop
+desktop-file-validate %{buildroot}%{_datadir}/applications/cult-copy.desktop
 
 %post
 if command -v gtk-update-icon-cache >/dev/null 2>&1; then
@@ -61,7 +64,8 @@ fi
 %files
 %license LICENSE
 %doc NOTICE.md THIRD_PARTY_NOTICES.txt RUST-STDLIB-NOTICES.html
-%{_bindir}/duet-clipboard
-%{_datadir}/applications/duet-clipboard.desktop
-%{_datadir}/icons/hicolor/scalable/apps/duet-clipboard.svg
-%{_datadir}/icons/hicolor/256x256/apps/duet-clipboard.png
+%{_bindir}/cult-copy
+%{_datadir}/applications/cult-copy.desktop
+%{_datadir}/icons/hicolor/scalable/apps/cult-copy.svg
+%{_datadir}/icons/hicolor/256x256/apps/cult-copy.png
+%{_datadir}/metainfo/io.github.bryancolvinfilm_bot.CultCopy.metainfo.xml

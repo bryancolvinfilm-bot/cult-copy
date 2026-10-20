@@ -13,8 +13,8 @@ Repository: <https://github.com/bryancolvinfilm-bot/cult-copy>
 
 Public downloads: <https://github.com/bryancolvinfilm-bot/cult-copy/releases/latest>
 
-Cult Copy is the display/project name from v0.1.6 onward. Keep the compatibility
-identifiers described in README's upgrade section. Installer/download filenames
+Cult Copy is the project, package, executable, and display name. Preserve upgrade
+migration for existing installations. Installer/download filenames
 use `CultCopy-`; old release assets retain their published names. Mac upgrades
 from the original app name use the PKG's bundle migration. The DMG is suitable
 for new installs and subsequent Cult Copy upgrades.
@@ -144,9 +144,8 @@ It checks `main` has not changed, creates immutable tag `v<version>` pointing
 to the tested commit, and uploads the fourteen assets to a **draft** release. It
 downloads the uploaded assets and checks their hashes before making the release
 public and marking it latest. A failure leaves no partially published release.
-The release notes retain the independent-project / no-Cult Copy-Display-affiliation
-notice and explain that the Windows/package builds are unsigned and the Mac app
-is ad-hoc signed rather than notarized.
+The release notes describe Cult Copy and explain that the Windows/package
+builds are unsigned and the Mac app is ad-hoc signed rather than notarized.
 
 The local publisher then downloads those fourteen files anonymously and verifies
 them again. Its copies remain in an ignored `.tools/public-download-*` directory.

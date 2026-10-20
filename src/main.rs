@@ -36,7 +36,7 @@ fn run() -> Result<()> {
             args.get(index + 1)
                 .context("--data-dir requires a folder")?,
         ),
-        None => config::default_dir()?,
+        None => config::prepare_default_dir()?,
     };
     std::fs::create_dir_all(&dir)?;
     let lock = OpenOptions::new()
@@ -77,7 +77,7 @@ fn run() -> Result<()> {
     let options = eframe::NativeOptions {
         viewport: eframe::egui::ViewportBuilder::default()
             .with_title("Cult Copy")
-            .with_app_id("duet-clipboard")
+            .with_app_id("cult-copy")
             .with_inner_size([560.0, 720.0])
             .with_min_inner_size([440.0, 420.0])
             .with_visible(!args.iter().any(|a| a == "--background"))

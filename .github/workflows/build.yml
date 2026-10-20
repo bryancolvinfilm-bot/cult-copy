@@ -115,7 +115,7 @@ jobs:
         run: |
           if (!(Test-Path 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe') -and !(Test-Path 'C:\Program Files\Inno Setup 7\ISCC.exe')) { choco install innosetup --yes --no-progress }
           ./scripts/package-windows.ps1 -Architecture '${{ matrix.arch }}'
-          $icon = [System.Drawing.Icon]::ExtractAssociatedIcon((Resolve-Path target/release/duet-clipboard.exe))
+          $icon = [System.Drawing.Icon]::ExtractAssociatedIcon((Resolve-Path target/release/cult-copy.exe))
           if (!$icon) { throw 'Windows executable has no icon.' }
           $icon.Dispose()
       - name: Windows upgrade from the original app
@@ -132,18 +132,23 @@ jobs:
           mkdir -p "$task_install_dir/share/applications" "$task_install_dir/share/duet-clipboard"
           printf '[Desktop Entry]\nName=Duet Clipboard\n' > "$task_install_dir/share/applications/duet-clipboard.desktop"
           printf 'legacy executable\n' > "$task_install_dir/share/duet-clipboard/duet-clipboard"
-          XDG_DATA_HOME="$task_install_dir/share" sh "dist/CultCopy-$APP_VERSION-linux-${{ matrix.arch }}.run"
-          "$task_install_dir/share/duet-clipboard/duet-clipboard" --version
-          test "$(grep '^Name=' "$task_install_dir/share/applications/duet-clipboard.desktop")" = 'Name=Cult Copy'
-          test ! -e "$task_install_dir/share/applications/cult-copy.desktop"
-          desktop-file-validate "$task_install_dir/share/applications/duet-clipboard.desktop"
-          test "$(sed -n 's/^Icon=//p' "$task_install_dir/share/applications/duet-clipboard.desktop")" = duet-clipboard
-          test "$(sed -n 's/^StartupWMClass=//p' "$task_install_dir/share/applications/duet-clipboard.desktop")" = duet-clipboard
-          cmp packaging/icons/icon-256.png "$task_install_dir/share/icons/hicolor/256x256/apps/duet-clipboard.png"
-          cmp packaging/cult-copy.svg "$task_install_dir/share/icons/hicolor/scalable/apps/duet-clipboard.svg"
+          mkdir -p "$task_install_dir/config/autostart"
+          printf '[Desktop Entry]\nType=Application\nName=Cult Copy\nExec=duet-clipboard --background\n' > "$task_install_dir/config/autostart/duet-clipboard.desktop"
+          XDG_CONFIG_HOME="$task_install_dir/config" XDG_DATA_HOME="$task_install_dir/share" sh "dist/CultCopy-$APP_VERSION-linux-${{ matrix.arch }}.run"
+          "$task_install_dir/share/cult-copy/cult-copy" --version
+          test "$(grep '^Name=' "$task_install_dir/share/applications/cult-copy.desktop")" = 'Name=Cult Copy'
+          test ! -e "$task_install_dir/share/applications/duet-clipboard.desktop"
+          test ! -e "$task_install_dir/share/duet-clipboard/duet-clipboard"
+          test ! -e "$task_install_dir/config/autostart/duet-clipboard.desktop"
+          grep -q '^Exec=.*cult-copy.* --background$' "$task_install_dir/config/autostart/cult-copy.desktop"
+          desktop-file-validate "$task_install_dir/share/applications/cult-copy.desktop"
+          test "$(sed -n 's/^Icon=//p' "$task_install_dir/share/applications/cult-copy.desktop")" = cult-copy
+          test "$(sed -n 's/^StartupWMClass=//p' "$task_install_dir/share/applications/cult-copy.desktop")" = cult-copy
+          cmp packaging/icons/icon-256.png "$task_install_dir/share/icons/hicolor/256x256/apps/cult-copy.png"
+          cmp packaging/cult-copy.svg "$task_install_dir/share/icons/hicolor/scalable/apps/cult-copy.svg"
           chmod +x "dist/CultCopy-$APP_VERSION-linux-${{ matrix.arch }}.AppImage"
           "dist/CultCopy-$APP_VERSION-linux-${{ matrix.arch }}.AppImage" --appimage-extract-and-run --version
-          desktop-file-validate dist/*.AppDir/duet-clipboard.desktop
+          desktop-file-validate dist/*.AppDir/cult-copy.desktop
       - name: Verify packaged Mac icon
         if: runner.os == 'macOS'
         run: |

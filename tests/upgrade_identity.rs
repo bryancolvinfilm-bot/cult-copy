@@ -5,7 +5,14 @@ use cult_copy::config::{self, Config};
 #[test]
 fn existing_profiles_keep_their_location_device_keys_and_pairings() {
     let legacy = directories::ProjectDirs::from("io", "DuetClipboard", "DuetClipboard").unwrap();
+    #[cfg(not(target_os = "linux"))]
     assert_eq!(config::default_dir().unwrap(), legacy.data_local_dir());
+    #[cfg(target_os = "linux")]
+    {
+        let current = directories::ProjectDirs::from("io", "CultCopy", "CultCopy").unwrap();
+        assert_eq!(config::default_dir().unwrap(), current.data_local_dir());
+        assert_ne!(config::default_dir().unwrap(), legacy.data_local_dir());
+    }
     let dir = tempfile::tempdir().unwrap();
     let private_key = "01".repeat(32);
     let public_key = "02".repeat(32);
@@ -34,24 +41,29 @@ fn existing_profiles_keep_their_location_device_keys_and_pairings() {
 fn installers_and_discovery_retain_the_previous_release_identity() {
     let windows = include_str!("../packaging/windows.iss");
     assert!(windows.contains("AppId={{736A9FD9-50C7-43B8-9E1C-A9AA51AF943E}"));
-    assert!(windows.contains("DefaultDirName={localappdata}\\Programs\\DuetClipboard"));
+    assert!(windows.contains("DefaultDirName={localappdata}\\Programs\\CultCopy"));
     assert!(windows.contains("AppUserModelID: \"io.duetclipboard.app\""));
     assert!(windows.contains("AppName=Cult Copy"));
     let mac = include_str!("../packaging/Info.plist");
     assert!(mac.contains("<key>CFBundleIdentifier</key><string>io.duetclipboard.app</string>"));
     assert!(mac.contains("<key>CFBundleDisplayName</key><string>Cult Copy</string>"));
-    assert!(include_str!("../packaging/cult-copy.spec").contains("Name:           duet-clipboard"));
+    assert!(include_str!("../packaging/cult-copy.spec").contains("Name:           cult-copy"));
     let launcher = include_str!("../packaging/cult-copy.desktop");
     assert!(launcher.contains("Name=Cult Copy\n"));
-    assert!(launcher.contains("StartupWMClass=duet-clipboard\n"));
+    assert!(launcher.contains("Exec=cult-copy\n"));
+    assert!(launcher.contains("Icon=cult-copy\n"));
+    let metadata = include_str!("../packaging/io.github.bryancolvinfilm_bot.CultCopy.metainfo.xml");
+    assert!(metadata.contains("<name>Cult Copy</name>"));
+    assert!(metadata.contains("cult-copy.desktop"));
+    assert!(launcher.contains("StartupWMClass=cult-copy\n"));
     assert_eq!(cult_copy::network::SERVICE, "_duetclip._tcp.local.");
     assert!(include_str!("../src/protocol.rs").contains(".prologue(b\"duet-clipboard/v1\")"));
 }
 
 #[test]
 #[cfg(feature = "desktop")]
-fn legacy_executable_reports_the_new_brand_and_version() {
-    let output = std::process::Command::new(env!("CARGO_BIN_EXE_duet-clipboard"))
+fn executable_reports_the_current_brand_and_version() {
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_cult-copy"))
         .arg("--version")
         .output()
         .unwrap();

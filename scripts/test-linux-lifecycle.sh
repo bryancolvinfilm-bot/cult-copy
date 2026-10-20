@@ -9,7 +9,7 @@ if [ -n "${CULT_COPY_TEST_BINARY:-}" ]; then
     task_binary=$CULT_COPY_TEST_BINARY
 else
     cargo build --locked --features ui-test
-    task_binary="${CARGO_TARGET_DIR:-target}/debug/duet-clipboard"
+    task_binary="${CARGO_TARGET_DIR:-target}/debug/cult-copy"
 fi
 task_tmp=$(mktemp -d "${TMPDIR:-/tmp}/cult-copy-lifecycle.XXXXXXXX")
 task_compositor=''

@@ -2,18 +2,18 @@
 
 <img src="packaging/icons/icon-256.png" alt="Cult Copy: overlapping white and green boxes" width="96" height="96">
 
-A third-party, open-source Rust tray/menu bar app that shares text, images, files, and folders between paired computers on a local network. Each installation sends and receives. There is no central server, account, or cloud service. Licensed under the [MIT License](LICENSE).
+An open-source Rust tray/menu bar app that shares text, images, files, and folders between paired computers on a local network. Each installation sends and receives. There is no central server, account, or cloud service. Licensed under the [MIT License](LICENSE).
 
-**Independent project: this app has no relation to Duet Display. It is not affiliated with, endorsed by, sponsored by, or maintained by Duet Display or its developers.** It provides separate LAN clipboard sharing that can be useful alongside display-sharing software. Duet Display is not required, and this app does not integrate with or modify it. See [NOTICE.md](NOTICE.md).
-
-This is an early release. Mac-to-PC clipboard sharing has been confirmed working by the user who built and tested it, and the Windows close-to-tray fix has been verified on Windows. Linux desktop validation remains outstanding. See [validation details](docs/VALIDATION.md).
+This is an early release. Native build, clipboard, installer, and window checks
+run on the supported platforms. See [validation details](docs/VALIDATION.md)
+for tested behavior and remaining device checks.
 
 ## Downloads
 
 Get the download for your computer from the
 [latest public release](https://github.com/bryancolvinfilm-bot/cult-copy/releases/latest).
 The matrix below applies to v0.1.5 and newer; earlier releases have fewer downloads.
-The Cult Copy name and `CultCopy-` filenames start with v0.1.6.
+Downloads use the Cult Copy name and `CultCopy-` filenames.
 
 | System | Processor | Recommended download | Alternative |
 | --- | --- | --- | --- |
@@ -50,7 +50,7 @@ distro for x64 and ARM64. Install the matching download with
 The Rocky 8 build uses its glibc 2.28 baseline; the Fedora RPM targets Fedora 44.
 DNF installs the desktop library dependencies, launcher, and icons system-wide.
 When switching from a per-user `.run` installation, quit Cult Copy and remove the old
-`~/.local/share/applications/duet-clipboard.desktop` (or the equivalent under
+`~/.local/share/applications/cult-copy.desktop` (or the equivalent under
 `$XDG_DATA_HOME`) so it does not override the RPM's launcher. Clipboard settings
 and history use the same per-user profile.
 
@@ -62,16 +62,14 @@ verified downloads, see [publish.md](publish.md).
 
 Cult Copy continues the same application under a new name. Install over the
 existing version; keep the same Linux package format when upgrading. Device
-keys, pairings, settings, and clipboard history retain their original profile
-locations. The icon is unchanged. The network protocol remains compatible with
+keys, pairings, settings, and clipboard history are preserved through supported
+upgrades. The icon is unchanged. The network protocol remains compatible with
 earlier releases, subject to the existing folder-transfer requirements below.
 
-Compatibility identifiers deliberately keep their original spelling:
-`io.duetclipboard.app`, the Windows installer GUID and install directory, the
-`duet-clipboard` executable, Linux RPM/desktop IDs, startup entry IDs, and the
-`DuetClipboard` data-directory identity. These are internal upgrade contracts;
-changing them would create separate installs or profiles. New downloads and
-the source project use **Cult Copy** / `cult-copy`.
+Linux packages, launchers, icons, startup entries, and the executable use
+`cult-copy`. The RPM replaces the previous package during an upgrade. Existing
+Linux profiles migrate to the Cult Copy data directory after the previous app
+has quit, preserving pairings, settings, and clipboard history.
 
 ## Use
 
@@ -209,7 +207,7 @@ CLI options: `--background`, `--data-dir PATH`, `--version`, `--help`. `--data-d
 
 Opening the app again activates the existing instance through an authenticated loopback-only endpoint. This also provides a way to reopen the window on Linux desktops without a tray host.
 
-Closing the window keeps Cult Copy running in the tray, including on native Linux Wayland. Clipboard syncing, notifications, and tray status updates continue while the window is closed. Use **Open clipboard** in the tray menu or launch the app again to reopen it. Choose **Quit** in the tray menu to exit. A disabled **Version** label at the bottom of that menu shows the running build's version. Linux's per-user installer installs PNG/SVG launcher icons and a desktop entry matching the window's `duet-clipboard` app ID.
+Closing the window keeps Cult Copy running in the tray, including on native Linux Wayland. Clipboard syncing, notifications, and tray status updates continue while the window is closed. Use **Open clipboard** in the tray menu or launch the app again to reopen it. Choose **Quit** in the tray menu to exit. A disabled **Version** label at the bottom of that menu shows the running build's version. Linux's per-user installer installs PNG/SVG launcher icons and a desktop entry matching the window's `cult-copy` app ID.
 
 ## Design
 

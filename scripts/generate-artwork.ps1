@@ -122,7 +122,7 @@ try {
         $taskGraphics.DrawString('One clipboard across your computers.', $taskBody, $taskWhite, 360, 232)
         $taskGraphics.DrawString('Text, images & files. Paired. Local. Private.', $taskBody, $taskMuted, 360, 282)
         $taskGraphics.DrawString('WINDOWS  /  macOS  /  LINUX', $taskSmall, $taskGreen, 80, 454)
-        $taskGraphics.DrawString('Independent open-source project. No affiliation with Duet Display.', $taskSmall, $taskMuted, 80, 518)
+        $taskGraphics.DrawString('Private, peer-to-peer clipboard sharing. Open source.', $taskSmall, $taskMuted, 80, 518)
         $taskCard.Save((Join-Path $taskRoot 'docs/social-preview.png'), [Drawing.Imaging.ImageFormat]::Png)
     } finally { $taskTitle.Dispose(); $taskBody.Dispose(); $taskSmall.Dispose(); $taskWhite.Dispose(); $taskGreen.Dispose(); $taskMuted.Dispose() }
 } finally { $taskGraphics.Dispose(); $taskBrand.Dispose(); $taskCard.Dispose() }

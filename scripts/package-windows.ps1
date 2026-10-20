@@ -3,7 +3,7 @@ $ErrorActionPreference = 'Stop'
 $taskRoot = Split-Path -Parent $PSScriptRoot
 . (Join-Path $PSScriptRoot 'version.ps1')
 $taskVersion = Get-AppVersion -Root $taskRoot
-if (!$Binary) { $Binary = Join-Path $taskRoot 'target\release\duet-clipboard.exe' }
+if (!$Binary) { $Binary = Join-Path $taskRoot 'target\release\cult-copy.exe' }
 $Binary = (Resolve-Path -LiteralPath $Binary).Path
 $taskPe = [IO.File]::ReadAllBytes($Binary)
 $taskMachine = [BitConverter]::ToUInt16($taskPe, [BitConverter]::ToInt32($taskPe, 60) + 4)

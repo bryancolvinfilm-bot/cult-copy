@@ -531,6 +531,64 @@ async fn encrypted_peers_require_pairing_and_sync_a_b_a_without_echo() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn bidirectional_files_stay_files_until_an_independent_text_copy_replaces_them() {
+    let a = Computer::new(false, crate::model::DEFAULT_LIMIT);
+    let b = Computer::new(false, crate::model::DEFAULT_LIMIT);
+    connect(&a, &b).await;
+    trust(&a, &b).await;
+
+    for (index, (sender, receiver)) in [(&a, &b), (&b, &a)].into_iter().enumerate() {
+        let source = sender.dir.path().join(format!("file {index} café.txt"));
+        let bytes = format!("actual file contents {index}").into_bytes();
+        std::fs::write(&source, &bytes).unwrap();
+        sender.copy(Captured::Files(vec![source]));
+        wait_for(&receiver.handle, |view| {
+            view.history.len() == index + 1
+                && view.history[0].status == Status::Ready
+                && view.history[0].applied
+        })
+        .await;
+        let received = match &receiver.memory.lock().unwrap().content {
+            Some(Captured::Files(paths)) => paths[0].clone(),
+            other => panic!("Expected native files, got {other:?}"),
+        };
+        assert_eq!(std::fs::read(received).unwrap(), bytes);
+        for computer in [&a, &b] {
+            let view = computer.handle.view.lock().unwrap();
+            assert_eq!(view.history.len(), index + 1);
+            assert!(view
+                .history
+                .iter()
+                .all(|item| item.offer.kind == Kind::Files));
+        }
+    }
+
+    // Reproduce a second clipboard writer sharing only the destination's URL
+    // back to the other machine. It is a new text copy there, and sends that
+    // destination-local path back over the encrypted connection. Native file
+    // transfers above never transmit these absolute paths on their own.
+    let received = match &a.memory.lock().unwrap().content {
+        Some(Captured::Files(paths)) => paths[0].clone(),
+        other => panic!("Expected native files, got {other:?}"),
+    };
+    let url = url::Url::from_file_path(received).unwrap().to_string();
+    b.text(&url);
+    wait_for(&a.handle, |view| {
+        view.history.len() == 3
+            && view.history[0].offer.kind == Kind::Text
+            && view.history[0].status == Status::Ready
+            && view.history[0].applied
+    })
+    .await;
+    assert_eq!(a.current_text(), url);
+    assert_eq!(b.current_text(), url);
+    assert_eq!(
+        b.handle.view.lock().unwrap().history[0].status,
+        Status::Local
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn ask_for_everything_blocks_even_small_text_until_this_receiver_accepts() {
     let a = Computer::new(false, crate::model::DEFAULT_LIMIT);
     let b = Computer::new(true, crate::model::DEFAULT_LIMIT);

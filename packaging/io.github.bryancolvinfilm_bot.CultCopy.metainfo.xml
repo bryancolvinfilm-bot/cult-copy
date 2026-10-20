@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.bryancolvinfilm_bot.CultCopy</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>Cult Copy</name>
+  <summary>Share your clipboard privately between paired computers</summary>
+  <developer id="io.github.bryancolvinfilm_bot"><name>Cult Copy contributors</name></developer>
+  <categories><category>Utility</category></categories>
+  <description>
+    <p>Share text, images, files, and folders between paired Windows, macOS, and Linux computers on your local network. Cult Copy runs in the tray and uses direct, encrypted connections without a central server or account.</p>
+  </description>
+  <launchable type="desktop-id">cult-copy.desktop</launchable>
+  <icon type="stock">cult-copy</icon>
+  <url type="homepage">https://github.com/bryancolvinfilm-bot/cult-copy</url>
+  <url type="bugtracker">https://github.com/bryancolvinfilm-bot/cult-copy/issues</url>
+  <provides><binary>cult-copy</binary></provides>
+  <content_rating type="oars-1.1"/>
+</component>

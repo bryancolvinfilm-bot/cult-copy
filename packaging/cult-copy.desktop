@@ -2,8 +2,8 @@
 Type=Application
 Name=Cult Copy
 Comment=Share your clipboard with paired computers on your local network
-Exec=duet-clipboard
-Icon=duet-clipboard
+Exec=cult-copy
+Icon=cult-copy
 Terminal=false
 Categories=Utility;
-StartupWMClass=duet-clipboard
+StartupWMClass=cult-copy

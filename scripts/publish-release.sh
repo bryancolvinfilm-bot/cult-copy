@@ -18,11 +18,11 @@ else
   git push origin "refs/tags/$task_tag"
 fi
 cat > release-notes.md <<EOF
-Independent, third-party open-source clipboard sharing on a local network. Not affiliated with, endorsed by, or maintained by Duet Display.
+Cult Copy shares text, images, files, and folders privately between paired computers on a local network.
 
-This update fixes file selections being captured as URL text, retries busy or changing Windows clipboards, resolves simultaneous peer connection races, and prevents blocked clipboard or file work from hanging tray Quit. Linux file selections retain their file-manager formats. Update the paired computers to test the fixes together.
+This update completes the Cult Copy naming in Linux package metadata, executables, launchers, icons, startup entries, and public project descriptions. The Linux RPM replaces the earlier package; existing Linux profiles migrate after the previous app has quit. Disable clipboard sharing in overlapping display or keyboard/mouse tools so Cult Copy can manage clipboard transfers.
 
-Cult Copy continues the same app with its original icon, device identity, pairings, settings, and history. Compatibility IDs are unchanged. When upgrading on Mac from the previous app name, quit it and use the PKG installer so the old app bundle is replaced by Cult Copy.app. New installs can use the DMG.
+Cult Copy keeps its original icon, device identity, pairings, settings, and history through supported upgrades. When upgrading on Mac from the previous app name, quit it and use the PKG installer so the old app bundle is replaced by Cult Copy.app. New installs can use the DMG.
 
 | Platform | Processor | Downloads |
 | --- | --- | --- |

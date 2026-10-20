@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640">
+  <rect width="1280" height="640" fill="#121722"/>
+  <svg x="72" y="114" width="240" height="240" viewBox="0 0 128 128">
+    <rect width="128" height="128" rx="28" fill="#121722"/>
+    <rect x="24" y="19" width="57" height="68" rx="9" fill="none" stroke="#fff" stroke-width="9"/>
+    <rect x="48" y="44" width="57" height="65" rx="9" fill="#121722" stroke="#6de0c1" stroke-width="9"/>
+  </svg>
+  <g font-family="Segoe UI, Arial, sans-serif">
+    <text x="356" y="194" font-size="52" font-weight="bold" fill="#fff">Cult Copy</text>
+    <text x="360" y="258" font-size="28" fill="#fff">One clipboard across your computers.</text>
+    <text x="360" y="308" font-size="28" fill="#97a3b8">Text, images &amp; files. Paired. Local. Private.</text>
+    <text x="80" y="475" font-size="22" fill="#6de0c1">WINDOWS  /  macOS  /  LINUX</text>
+    <text x="80" y="539" font-size="22" fill="#97a3b8">Private, peer-to-peer clipboard sharing. Open source.</text>
+  </g>
+</svg>

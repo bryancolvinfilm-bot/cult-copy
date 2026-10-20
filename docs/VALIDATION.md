@@ -1,5 +1,37 @@
 # Validation
 
+## Version 0.1.8: Cult Copy package identity
+
+The executable is `cult-copy` on all platforms. Linux RPMs, application-menu
+entries, icons, login startup, and AppStream metadata use the Cult Copy name.
+RPM upgrades replace the previous package; the per-user installer removes the
+previous executable and launcher and preserves enabled login startup. The new
+app also removes an obsolete per-user launcher that could keep opening an older
+version after an RPM upgrade.
+
+Linux profiles migrate to the Cult Copy data directory while preserving device
+keys, paired devices, settings, and cached file bytes. History paths inside the
+profile are rebased; original files outside the profile remain unchanged. A
+running previous instance blocks migration. Interrupted migrations finish on
+the next startup. Tests cover those migrations and
+preserve unrelated launchers. Windows and Mac installer identities continue to
+support existing installed profiles; their packaged executable uses the new name.
+
+The project description, README, notices, release-note template, and social
+preview describe Cult Copy without the earlier non-affiliation wording.
+An encrypted two-peer regression covers file copies in both directions and the
+effect of an independent writer replacing them with URL text. This test models
+clipboard competition; it does not certify a third-party display-sharing app.
+
+Local checks passed: 45 unit tests, three upgrade-contract tests, strict
+all-feature Clippy, formatting, Windows-target compilation, AppStream/desktop
+metadata validation, release-verifier checks, and a temporary per-user installer
+upgrade with login startup and a path containing spaces. The native clipboard round
+trip and X11/Wayland tray/window lifecycle checks passed inside a disposable
+Fedora desktop. Its Wayland compositor lacks data-control support, so native
+Wayland clipboard support remains a separate device check. Native installer
+upgrades are checked by the release workflows before publication.
+
 ## Version 0.1.7: file clipboard, crossed connections, and shutdown
 
 Capture recognizes explicit URI-list and GNOME/Nautilus file selections before

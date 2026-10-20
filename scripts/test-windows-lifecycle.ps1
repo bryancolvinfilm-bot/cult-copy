@@ -1,7 +1,7 @@
 param([string]$Binary = '')
 $ErrorActionPreference = 'Stop'
 $taskRoot = Split-Path -Parent $PSScriptRoot
-if (!$Binary) { $Binary = Join-Path $taskRoot 'target\release\duet-clipboard.exe' }
+if (!$Binary) { $Binary = Join-Path $taskRoot 'target\release\cult-copy.exe' }
 $Binary = (Resolve-Path -LiteralPath $Binary).Path
 $taskProfile = Join-Path $taskRoot ('.tools\lifecycle-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $taskProfile -Force | Out-Null

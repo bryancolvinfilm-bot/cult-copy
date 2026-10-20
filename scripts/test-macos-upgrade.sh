@@ -18,7 +18,7 @@ test ! -e "$task_old"
 test -d "$task_new"
 test ! -e "$task_new/legacy-upgrade-marker"
 test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$task_new/Contents/Info.plist")" = io.duetclipboard.app
-test "$("$task_new/Contents/MacOS/duet-clipboard" --version)" = "Cult Copy $task_version"
+test "$("$task_new/Contents/MacOS/cult-copy" --version)" = "Cult Copy $task_version"
 codesign --verify --strict "$task_new"
 pkgutil --pkg-info io.duetclipboard.app
 printf '%s\n' 'Mac PKG upgraded the legacy bundle to Cult Copy with the same identity.'

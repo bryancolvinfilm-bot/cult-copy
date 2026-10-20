@@ -1,12 +1,12 @@
 [package]
 name = "cult-copy"
-version = "0.1.7"
+version = "0.1.8"
 edition = "2021"
 rust-version = "1.90"
 description = "A private, peer-to-peer clipboard for your computers"
 license = "MIT"
-# Keep the executable name stable for existing startup entries and installers.
-default-run = "duet-clipboard"
+# Canonical executable name used by launchers and installers.
+default-run = "cult-copy"
 
 [features]
 default = ["desktop"]
@@ -65,6 +65,6 @@ strip = true
 panic = "abort"
 
 [[bin]]
-name = "duet-clipboard"
+name = "cult-copy"
 path = "src/main.rs"
 required-features = ["desktop"]

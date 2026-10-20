@@ -22,6 +22,8 @@ $taskRegistration = Get-ItemProperty $taskKey
 if ($taskRegistration.DisplayName -ne 'Cult Copy' -or $taskRegistration.DisplayVersion -ne $taskVersion) { throw 'Upgrade did not reuse the uninstall registration.' }
 if ($taskRegistration.InstallLocation.TrimEnd('\') -ne $taskInstall) { throw 'Upgrade changed the existing installation directory.' }
 if ((Get-ChildItem -LiteralPath $taskInstall -Filter 'unins*.exe').Count -ne 1) { throw 'Upgrade created a second uninstaller.' }
+if (Test-Path (Join-Path $taskInstall 'duet-clipboard.exe')) { throw 'Legacy executable remains.' }
+if (!(Test-Path (Join-Path $taskInstall 'cult-copy.exe'))) { throw 'Missing Cult Copy executable.' }
 $taskPrograms = [Environment]::GetFolderPath('Programs')
 if (Test-Path (Join-Path $taskPrograms 'Duet Clipboard.lnk')) { throw 'Legacy shortcut remains.' }
 if (!(Test-Path (Join-Path $taskPrograms 'Cult Copy.lnk'))) { throw 'Missing Cult Copy shortcut.' }

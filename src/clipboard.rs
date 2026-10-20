@@ -13,9 +13,9 @@ use uuid::Uuid;
 mod windows;
 
 #[cfg(target_os = "macos")]
-pub const MARKER: &str = "io.duetclipboard.clipboard-event";
+pub const MARKER: &str = "io.cultcopy.clipboard-event";
 #[cfg(not(target_os = "macos"))]
-pub const MARKER: &str = "application/x-duet-clipboard-event";
+pub const MARKER: &str = "application/x-cult-copy-event";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Captured {
